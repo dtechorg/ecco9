@@ -1,0 +1,51 @@
+# Orchestrator: leader-elected active-passive pair for orchestration
+# decisions, with read replicas for queries.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecco9-orchestrator
+  namespace: ecco9-platform
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecco9-orchestrator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecco9-orchestrator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: orchestrator
+          image: ghcr.io/dtechorg/ecco9-orchestrator:latest
+          args: ["--leader-elect"]
+          ports:
+            - { name: grpc, containerPort: 50051 }
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - name: ECCO9_ORCHESTRATOR_ADDR
+              value: ":8096"
+            - name: ECCO9_NATS_URL
+              value: "nats://nats.ecco9-data:4222"
+          resources:
+            requests: { cpu: 1, memory: 2Gi }
+            limits: { cpu: 2, memory: 4Gi }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8096 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8096 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecco9-orchestrator
+  namespace: ecco9-platform
+spec:
+  selector:
+    app.kubernetes.io/name: ecco9-orchestrator
+  ports:
+    - { name: grpc, port: 50051 }
+    - { name: http, port: 8096 }
