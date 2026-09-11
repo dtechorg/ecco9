@@ -1,0 +1,80 @@
+# Metacog service deployed as a Deployment; monitoring state is rebuilt
+# from the process/decision event stream.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecco9-metacog
+  namespace: ecco9-higher
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecco9-metacog
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecco9-metacog
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      # Co-locate with the orchestrator, which consumes AssessSystem.
+      affinity:
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ecco9-orchestrator
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: metacog
+          image: ghcr.io/dtechorg/ecco9-metacog:latest
+          ports:
+            - { name: http, containerPort: 8090 }
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - name: ECCO9_METACOG_ADDR
+              value: ":8090"
+            - name: ECCO9_NATS_URL
+              value: "nats://nats.ecco9-data:4222"
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: 2, memory: 2Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecco9-metacog
+  namespace: ecco9-higher
+spec:
+  selector:
+    app.kubernetes.io/name: ecco9-metacog
+  ports:
+    - { name: http, port: 8090, targetPort: http }
+---
+# HPA on the cognitive_load custom metric, not CPU.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ecco9-metacog
+  namespace: ecco9-higher
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ecco9-metacog
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Pods
+      pods:
+        metric: { name: ecco9_cognitive_load }
+        target: { type: AverageValue, averageValue: "0.6" }
