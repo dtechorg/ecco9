@@ -1,0 +1,23 @@
+# Grafana dashboards for cognitive observability (provisioned via ConfigMap).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecco9-cognitive-dashboard
+  namespace: ecco9-data
+  labels:
+    grafana_dashboard: "1"
+data:
+  ecco9-cognitive.json: |
+    {
+      "title": "ecco9 Cognitive Architecture",
+      "panels": [
+        { "title": "Global Cognitive Load", "targets": [{ "expr": "avg(ecco9_cognitive_load)" }] },
+        { "title": "Identity Coherence", "targets": [{ "expr": "min(ecco9_identity_coherence)" }] },
+        { "title": "Reservoir Echo Property", "targets": [{ "expr": "ecco9_reservoir_echo_property" }] },
+        { "title": "Thought Queue Depth", "targets": [{ "expr": "sum(ecco9_thought_queue_depth)" }] },
+        { "title": "Memory Consolidation Backlog", "targets": [{ "expr": "ecco9_memory_consolidation_backlog" }] },
+        { "title": "Dream Cycle Freshness", "targets": [{ "expr": "ecco9_dream_cycle_freshness_seconds" }] },
+        { "title": "Event Mesh Throughput", "targets": [{ "expr": "rate(nats_jetstream_messages_total[5m])" }] },
+        { "title": "LLM Gateway Latency by Provider", "targets": [{ "expr": "histogram_quantile(0.95, rate(ecco9_llm_latency_bucket[5m])) by (provider)" }] }
+      ]
+    }

@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package ecco9.consciousness.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/consciousness/v1;consciousnessv1";
+
+// Stream of consciousness with layered communication.
+
+enum LayerType {
+  LAYER_TYPE_UNSPECIFIED = 0;
+  LAYER_TYPE_SENSORY = 1;
+  LAYER_TYPE_INTEGRATIVE = 2;
+  LAYER_TYPE_META = 3;
+}
+
+message LayerMessage {
+  string id = 1;
+  LayerType source_layer = 2;
+  LayerType target_layer = 3;
+  string content = 4;
+  double salience = 5;
+  int64 timestamp_unix_ms = 6;
+}
+
+message Thought {
+  string id = 1;
+  string content = 2;
+  double intensity = 3;
+  int64 timestamp_unix_ms = 4;
+}
+
+message PublishThoughtRequest { Thought thought = 1; }
+message PublishThoughtResponse { bool accepted = 1; }
+
+// WebSocket/SSE-equivalent server stream for real-time consciousness.
+message StreamConsciousnessRequest { string identity_id = 1; }
+message StreamConsciousnessResponse {
+  oneof payload {
+    Thought thought = 1;
+    LayerMessage layer_message = 2;
+  }
+}
+
+service ConsciousnessService {
+  rpc PublishThought(PublishThoughtRequest) returns (PublishThoughtResponse);
+  rpc StreamConsciousness(StreamConsciousnessRequest) returns (stream StreamConsciousnessResponse);
+}

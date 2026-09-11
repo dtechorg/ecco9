@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package ecco9.atomspace.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/atomspace/v1;atomspacev1";
+
+// OpenCog AtomSpace: weighted labeled hypergraph with attention allocation
+// and pattern matching.
+
+enum AtomType {
+  ATOM_TYPE_UNSPECIFIED = 0;
+  ATOM_TYPE_CONCEPT = 1;
+  ATOM_TYPE_PREDICATE = 2;
+  ATOM_TYPE_VARIABLE = 3;
+  ATOM_TYPE_SCHEMA = 4;
+}
+
+message TruthValue {
+  double strength = 1;
+  double confidence = 2;
+}
+
+message AttentionValue {
+  double sti = 1; // short-term importance
+  double lti = 2; // long-term importance
+}
+
+message Atom {
+  string id = 1;
+  AtomType type = 2;
+  string name = 3;
+  TruthValue truth = 4;
+  AttentionValue attention = 5;
+}
+
+message Link {
+  string id = 1;
+  string type = 2;
+  repeated string outgoing_atom_ids = 3;
+  TruthValue truth = 4;
+}
+
+message AddAtomRequest { Atom atom = 1; }
+message AddAtomResponse { string id = 1; }
+
+message AddLinkRequest { Link link = 1; }
+message AddLinkResponse { string id = 1; }
+
+message PatternMatchRequest {
+  string pattern = 1; // pattern matcher query
+  int32 max_results = 2;
+}
+message PatternMatchResponse { repeated Atom atoms = 1; }
+
+message UpdateAttentionRequest {
+  string atom_id = 1;
+  AttentionValue attention = 2;
+}
+message UpdateAttentionResponse { bool applied = 1; }
+
+service AtomSpaceService {
+  rpc AddAtom(AddAtomRequest) returns (AddAtomResponse);
+  rpc AddLink(AddLinkRequest) returns (AddLinkResponse);
+  rpc PatternMatch(PatternMatchRequest) returns (PatternMatchResponse);
+  rpc UpdateAttention(UpdateAttentionRequest) returns (UpdateAttentionResponse);
+}

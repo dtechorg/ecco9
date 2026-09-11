@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package ecco9.events.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/events/v1;eventsv1";
+
+// CloudEvents-compatible envelope for the NATS JetStream event mesh.
+// Topic taxonomy mirrors cognitive pathways:
+//   echo.thoughts, echo.emotions, echo.memories, echo.dreams,
+//   echo.resonance, echo.metrics, echo.training
+
+message EventEnvelope {
+  // CloudEvents attributes
+  string id = 1;
+  string source = 2;          // e.g. "//ecco9/reservoir/instance-0"
+  string type = 3;            // e.g. "ecco9.echo.memories.v1"
+  string spec_version = 4;    // "1.0"
+  string subject = 5;
+  int64 time_unix_ms = 6;
+  string data_content_type = 7; // "application/protobuf"
+
+  // Cognitive routing metadata
+  string identity_id = 8;
+  double relevance_score = 9; // filled by ecco9-relevance
+  double echo_signature = 10; // resonance fingerprint
+
+  bytes data = 11; // serialized domain payload
+}
+
+message PublishRequest { EventEnvelope event = 1; }
+message PublishResponse { string sequence = 1; }
+
+message SubscribeRequest {
+  string topic = 1;          // supports wildcards, e.g. "echo.*"
+  string consumer_group = 2; // for horizontal scaling
+  bool replay_from_start = 3;
+}
+
+message SubscribeResponse { EventEnvelope event = 1; }
+
+service EventMeshService {
+  rpc Publish(PublishRequest) returns (PublishResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+}

@@ -1,0 +1,31 @@
+# JetStream stream definitions, applied by a provisioning Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ecco9-eventmesh-provision
+  namespace: ecco9-data
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: nats-cli
+          image: natsio/nats-box:0.14
+          command:
+            - sh
+            - -ec
+            - |
+              nats stream add ECHO-CORE \
+                --subjects "echo.thoughts,echo.emotions,echo.resonance" \
+                --retention limits --max-age 24h --storage file \
+                --replicas 3 --defaults --server nats:4222 || true
+
+              nats stream add ECHO-MEMORY \
+                --subjects "echo.memories,echo.dreams" \
+                --retention interest --storage file \
+                --replicas 3 --defaults --server nats:4222 || true
+
+              nats stream add ECHO-CONTROL \
+                --subjects "echo.metrics,echo.directives,echo.training" \
+                --retention workqueue --storage file \
+                --replicas 3 --defaults --server nats:4222 || true

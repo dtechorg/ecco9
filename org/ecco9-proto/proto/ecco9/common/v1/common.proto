@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package ecco9.common.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/common/v1;commonv1";
+
+// Health status shared by every cognitive service.
+enum ServingStatus {
+  SERVING_STATUS_UNSPECIFIED = 0;
+  SERVING_STATUS_SERVING = 1;
+  SERVING_STATUS_NOT_SERVING = 2;
+  SERVING_STATUS_DEGRADED = 3;
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  ServingStatus status = 1;
+  // Identity coherence in [0,1]; first-class deployment gate metric.
+  double identity_coherence = 2;
+  // Cognitive load index in [0,1]; autoscaling signal.
+  double cognitive_load = 3;
+  map<string, string> details = 4;
+}
+
+// Versioned cognitive metrics published by every service.
+message CognitiveMetrics {
+  string service_name = 1;
+  string instance_id = 2;
+  int64 timestamp_unix_ms = 3;
+  double thought_queue_depth = 4;
+  double memory_consolidation_backlog = 5;
+  double dream_cycle_freshness_seconds = 6;
+  double identity_coherence_delta = 7;
+  double reservoir_echo_property = 8;
+  int32 active_goroutines = 9;
+}

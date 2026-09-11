@@ -1,0 +1,13 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    GO_PACKAGE:
+      default: github.com/dtechorg/ecco9-sdk-go/gen
+plugins:
+  - remote: buf.build/protocolbuffers/go
+    out: gen
+    opt: paths=source_relative
+  - remote: buf.build/grpc/go
+    out: gen
+    opt: paths=source_relative

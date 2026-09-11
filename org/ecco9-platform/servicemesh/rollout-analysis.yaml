@@ -1,0 +1,37 @@
+# Argo Rollouts analysis template: identity coherence deployment gate.
+# Applied to canary deployments of every cognitive service.
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: identity-coherence-gate
+  namespace: ecco9-platform
+spec:
+  metrics:
+    - name: identity-coherence
+      interval: 30s
+      count: 5
+      successCondition: result[0] >= 0.7
+      provider:
+        prometheus:
+          address: http://prometheus.ecco9-data:9090
+          query: |
+            avg(ecco9_identity_coherence{namespace="{{args.namespace}}"})
+    - name: cognitive-load
+      interval: 30s
+      count: 5
+      successCondition: result[0] <= 0.9
+      provider:
+        prometheus:
+          address: http://prometheus.ecco9-data:9090
+          query: |
+            avg(ecco9_cognitive_load{namespace="{{args.namespace}}"})
+---
+# Mesh-wide strict mTLS between cognitive services.
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: ecco9-mtls
+  namespace: ecco9-core
+spec:
+  mtls:
+    mode: STRICT

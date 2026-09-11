@@ -1,0 +1,12 @@
+version: v2
+name: buf.build/dtechorg/ecco9-proto
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+breaking:
+  use:
+    - FILE

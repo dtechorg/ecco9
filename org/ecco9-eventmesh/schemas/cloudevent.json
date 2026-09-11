@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://dtechorg.github.io/ecco9/schemas/cloudevent.json",
+  "title": "ecco9 Cognitive Event Envelope",
+  "description": "CloudEvents 1.0 compatible envelope carried on the NATS event mesh. Canonical form is the ecco9.events.v1.EventEnvelope protobuf message; this JSON schema documents the equivalent representation for non-Go consumers.",
+  "type": "object",
+  "required": ["id", "source", "type", "spec_version", "data"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string", "example": "//ecco9/reservoir/instance-0" },
+    "type": { "type": "string", "example": "ecco9.echo.memories.v1" },
+    "spec_version": { "const": "1.0" },
+    "subject": { "type": "string" },
+    "time_unix_ms": { "type": "integer" },
+    "data_content_type": { "const": "application/protobuf" },
+    "identity_id": { "type": "string" },
+    "relevance_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "echo_signature": { "type": "number" },
+    "data": { "type": "string", "contentEncoding": "base64" }
+  }
+}

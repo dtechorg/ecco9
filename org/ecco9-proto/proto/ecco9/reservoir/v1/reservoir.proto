@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+package ecco9.reservoir.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/reservoir/v1;reservoirv1";
+
+// Persona-specific reservoir configuration, mirroring PersonaConfig in
+// core/deeptreeecho/echo_state_reservoir.go.
+enum PersonaType {
+  PERSONA_TYPE_UNSPECIFIED = 0;
+  PERSONA_TYPE_CONTEMPLATIVE_SCHOLAR = 1;
+  PERSONA_TYPE_DYNAMIC_EXPLORER = 2;
+  PERSONA_TYPE_CAUTIOUS_ANALYST = 3;
+  PERSONA_TYPE_CREATIVE_VISIONARY = 4;
+}
+
+message ProcessInputRequest {
+  string reservoir_id = 1;
+  repeated double input = 2;
+  PersonaType persona = 3;
+}
+
+message ProcessInputResponse {
+  repeated double state = 1;
+  double echo_property = 2;
+  double complexity = 3;
+}
+
+// Bidirectional stream for continuous online reservoir training using
+// recursive least squares on readout weights.
+message TrainOnlineRequest {
+  string reservoir_id = 1;
+  repeated double input = 2;
+  repeated double target = 3;
+  double forgetting_factor = 4; // lambda for RLS, e.g. 0.99
+}
+
+message TrainOnlineResponse {
+  double prediction_error = 1;
+  int64 samples_trained = 2;
+  string checkpoint_version = 3;
+}
+
+message GetStateRequest {
+  string reservoir_id = 1;
+}
+
+message GetStateResponse {
+  repeated double state = 1;
+  PersonaType persona = 2;
+  int32 size = 3;
+  double spectral_radius = 4;
+  double leak_rate = 5;
+}
+
+message SetPersonaRequest {
+  string reservoir_id = 1;
+  PersonaType persona = 2;
+}
+
+message SetPersonaResponse {
+  PersonaType applied = 1;
+}
+
+// ReservoirService is the temporal core of the cognitive architecture.
+// Deployed as a StatefulSet with sharded reservoir partitions.
+service ReservoirService {
+  rpc ProcessInput(ProcessInputRequest) returns (ProcessInputResponse);
+  rpc TrainOnline(stream TrainOnlineRequest) returns (stream TrainOnlineResponse);
+  rpc GetState(GetStateRequest) returns (GetStateResponse);
+  rpc SetPersona(SetPersonaRequest) returns (SetPersonaResponse);
+}
+
+// ThreadPoolController is driven by the orchestrator to adapt worker counts
+// based on the global cognitive load index.
+message SetThreadPoolSizeRequest {
+  int32 workers = 1;
+  string reason = 2;
+}
+
+message SetThreadPoolSizeResponse {
+  int32 previous_workers = 1;
+  int32 current_workers = 2;
+}
+
+service ReservoirControlService {
+  rpc SetThreadPoolSize(SetThreadPoolSizeRequest) returns (SetThreadPoolSizeResponse);
+}

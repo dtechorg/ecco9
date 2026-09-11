@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package ecco9.emotion.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/emotion/v1;emotionv1";
+
+// Embodied emotion and Agent-Arena-Relation core.
+
+enum EmotionType {
+  EMOTION_TYPE_UNSPECIFIED = 0;
+  EMOTION_TYPE_INTEREST = 1;
+  EMOTION_TYPE_JOY = 2;
+  EMOTION_TYPE_SURPRISE = 3;
+  EMOTION_TYPE_SADNESS = 4;
+  EMOTION_TYPE_ANGER = 5;
+  EMOTION_TYPE_DISGUST = 6;
+  EMOTION_TYPE_CONTEMPT = 7;
+  EMOTION_TYPE_FEAR = 8;
+  EMOTION_TYPE_SHAME = 9;
+  EMOTION_TYPE_GUILT = 10;
+}
+
+message EmotionalState {
+  EmotionType type = 1;
+  double intensity = 2;         // [0,1]
+  double attention_scope = 3;   // joy broadens (>1), fear narrows (<1)
+  double processing_depth = 4;
+  double approach_avoidance = 5;
+  double memory_strength = 6;
+  double exploration_bias = 7;
+  int64 onset_time_unix_ms = 8;
+}
+
+message FeelRequest {
+  string identity_id = 1;
+  EmotionalState emotion = 2;
+}
+message FeelResponse { EmotionalState current = 1; }
+
+message GetEmotionalStateRequest { string identity_id = 1; }
+message GetEmotionalStateResponse { EmotionalState current = 1; }
+
+// Server-streaming subscription for continuous emotional dynamics.
+message StreamEmotionsRequest { string identity_id = 1; }
+message StreamEmotionsResponse { EmotionalState state = 1; }
+
+service EmotionService {
+  rpc Feel(FeelRequest) returns (FeelResponse);
+  rpc GetEmotionalState(GetEmotionalStateRequest) returns (GetEmotionalStateResponse);
+  rpc StreamEmotions(StreamEmotionsRequest) returns (stream StreamEmotionsResponse);
+}

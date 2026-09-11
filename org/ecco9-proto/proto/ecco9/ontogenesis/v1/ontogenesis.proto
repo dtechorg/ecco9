@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package ecco9.ontogenesis.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/ontogenesis/v1;ontogenesisv1";
+
+// Ontogenetic genome evolution and entelechy actualization.
+
+message Genome {
+  string id = 1;
+  map<string, double> genes = 2; // reservoir params, thresholds, etc.
+  double fitness = 3;
+  int32 generation = 4;
+}
+
+message SubmitGenomeRequest { Genome genome = 1; }
+message SubmitGenomeResponse { string id = 1; }
+
+message EvaluateFitnessRequest { string genome_id = 1; }
+message EvaluateFitnessResponse { double fitness = 1; }
+
+message EvolveRequest {
+  int32 population_size = 1;
+  int32 generations = 2;
+  double mutation_rate = 3;
+}
+message EvolveResponse {
+  string job_id = 1;
+}
+
+message GetEvolutionStatusRequest { string job_id = 1; }
+message GetEvolutionStatusResponse {
+  bool running = 1;
+  int32 current_generation = 2;
+  Genome best_genome = 3;
+}
+
+// Entelechy: degree of actualization across developmental dimensions.
+message ActualizationRequest {}
+message ActualizationResponse {
+  map<string, double> dimensions = 1;
+  double overall_actualization = 2;
+}
+
+service OntogenesisService {
+  rpc SubmitGenome(SubmitGenomeRequest) returns (SubmitGenomeResponse);
+  rpc EvaluateFitness(EvaluateFitnessRequest) returns (EvaluateFitnessResponse);
+  rpc Evolve(EvolveRequest) returns (EvolveResponse);
+  rpc GetEvolutionStatus(GetEvolutionStatusRequest) returns (GetEvolutionStatusResponse);
+  rpc GetActualization(ActualizationRequest) returns (ActualizationResponse);
+}

@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package ecco9.wisdom.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/wisdom/v1;wisdomv1";
+
+// Wisdom metrics (seven-dimensional assessment) and goal orchestration.
+
+enum GoalType {
+  GOAL_TYPE_UNSPECIFIED = 0;
+  GOAL_TYPE_EXPLORATION = 1;
+  GOAL_TYPE_CONSOLIDATION = 2;
+  GOAL_TYPE_REPAIR = 3;
+  GOAL_TYPE_GROWTH = 4;
+}
+
+message Goal {
+  string id = 1;
+  GoalType type = 2;
+  string description = 3;
+  double priority = 4;
+  double progress = 5; // [0,1]
+  int64 created_at_unix_ms = 6;
+}
+
+message CreateGoalRequest { Goal goal = 1; }
+message CreateGoalResponse { string id = 1; }
+
+message ListGoalsRequest { GoalType type_filter = 1; }
+message ListGoalsResponse { repeated Goal goals = 1; }
+
+message WisdomAssessment {
+  repeated double dimensions = 1; // 7 dimensions
+  double overall = 2;
+  int64 assessed_at_unix_ms = 3;
+}
+
+message GetWisdomRequest {}
+message GetWisdomResponse { WisdomAssessment assessment = 1; }
+
+message ApplyWisdomRequest {
+  string context = 1;
+  int32 max_entries = 2;
+}
+message ApplyWisdomResponse {
+  repeated string wisdom_entries = 1;
+  repeated double applicability = 2;
+}
+
+service WisdomService {
+  rpc CreateGoal(CreateGoalRequest) returns (CreateGoalResponse);
+  rpc ListGoals(ListGoalsRequest) returns (ListGoalsResponse);
+  rpc GetWisdom(GetWisdomRequest) returns (GetWisdomResponse);
+  rpc ApplyWisdom(ApplyWisdomRequest) returns (ApplyWisdomResponse);
+}

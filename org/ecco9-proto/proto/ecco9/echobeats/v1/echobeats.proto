@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package ecco9.echobeats.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/echobeats/v1;echobeatsv1";
+
+// EchoBeats 12-step 3-phase cognitive rhythm orchestrator.
+// Leader-elected singleton that emits phase transitions to the event mesh.
+
+enum CognitivePhase {
+  COGNITIVE_PHASE_UNSPECIFIED = 0;
+  COGNITIVE_PHASE_EXPRESSIVE = 1;
+  COGNITIVE_PHASE_REFLECTIVE = 2;
+  COGNITIVE_PHASE_INTEGRATIVE = 3;
+}
+
+message StepExecution {
+  int32 step = 1; // 1..12
+  CognitivePhase phase = 2;
+  string thought = 3;
+  int64 executed_at_unix_ms = 4;
+  double relevance_score = 5;
+}
+
+message GetLoopStateRequest {}
+message GetLoopStateResponse {
+  int32 current_step = 1;
+  CognitivePhase current_phase = 2;
+  uint64 cycles_completed = 3;
+  uint64 steps_executed = 4;
+  bool running = 5;
+}
+
+message StartLoopRequest {
+  int32 cycle_frequency_hz = 1; // pushed by orchestrator under load control
+}
+message StartLoopResponse { bool started = 1; }
+
+message StopLoopRequest {}
+message StopLoopResponse { bool stopped = 1; }
+
+// Server stream of every step execution for downstream subscribers.
+message StreamStepsRequest {}
+message StreamStepsResponse { StepExecution step = 1; }
+
+service EchoBeatsService {
+  rpc GetLoopState(GetLoopStateRequest) returns (GetLoopStateResponse);
+  rpc StartLoop(StartLoopRequest) returns (StartLoopResponse);
+  rpc StopLoop(StopLoopRequest) returns (StopLoopResponse);
+  rpc StreamSteps(StreamStepsRequest) returns (stream StreamStepsResponse);
+}

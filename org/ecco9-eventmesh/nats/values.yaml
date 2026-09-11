@@ -1,0 +1,31 @@
+# NATS Helm values for the ecco9 event mesh (central nervous system).
+nats:
+  image: nats:2.10-alpine
+  cluster:
+    enabled: true
+    replicas: 3
+  jetstream:
+    enabled: true
+    fileStore:
+      enabled: true
+      size: 20Gi
+      storageClass: ssd
+    memStore:
+      enabled: true
+      size: 2Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+# Supercluster gateways for multi-region identity coherence.
+gateway:
+  enabled: true
+  name: ecco9-region-a
+
+monitoring:
+  prometheus:
+    enabled: true

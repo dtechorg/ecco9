@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package ecco9.llm.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/llm/v1;llmv1";
+
+// Unified multi-provider LLM gateway.
+
+enum Provider {
+  PROVIDER_UNSPECIFIED = 0;
+  PROVIDER_OPENAI = 1;
+  PROVIDER_ANTHROPIC = 2;
+  PROVIDER_OPENROUTER = 3;
+  PROVIDER_FEATHERLESS = 4;
+  PROVIDER_LOCAL_GGUF = 5;
+}
+
+message ChatMessage {
+  string role = 1;
+  string content = 2;
+}
+
+message GenerateRequest {
+  string request_id = 1;
+  string model = 2;
+  repeated ChatMessage messages = 3;
+  Provider preferred_provider = 4;
+  double temperature = 5;
+  int32 max_tokens = 6;
+  bool stream = 7;
+}
+
+message GenerateResponse {
+  string request_id = 1;
+  string content = 2;
+  Provider provider_used = 3;
+  int32 prompt_tokens = 4;
+  int32 completion_tokens = 5;
+  bool done = 6;
+}
+
+message ProviderStatusRequest {}
+message ProviderStatusResponse {
+  map<string, bool> provider_health = 1;
+  map<string, double> provider_latency_ms = 2;
+}
+
+service LLMGatewayService {
+  rpc Generate(GenerateRequest) returns (GenerateResponse);
+  rpc GenerateStream(GenerateRequest) returns (stream GenerateResponse);
+  rpc GetProviderStatus(ProviderStatusRequest) returns (ProviderStatusResponse);
+}
+
+// Runner: local GGUF inference on GPU nodes.
+message LoadModelRequest {
+  string model_path = 1;
+  int32 gpu_layers = 2;
+  int32 context_size = 3;
+}
+message LoadModelResponse { string model_id = 1; }
+
+message UnloadModelRequest { string model_id = 1; }
+message UnloadModelResponse { bool unloaded = 1; }
+
+service RunnerService {
+  rpc LoadModel(LoadModelRequest) returns (LoadModelResponse);
+  rpc UnloadModel(UnloadModelRequest) returns (UnloadModelResponse);
+  rpc Generate(GenerateRequest) returns (stream GenerateResponse);
+}

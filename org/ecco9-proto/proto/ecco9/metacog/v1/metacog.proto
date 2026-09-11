@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package ecco9.metacog.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/metacog/v1;metacogv1";
+
+// Metacognitive monitoring, decision quality, strategy selection,
+// and self-directed learning gap identification.
+
+message CognitiveProcess {
+  string id = 1;
+  string type = 2;
+  string service = 3;
+  double quality_score = 4;
+  int64 started_at_unix_ms = 5;
+}
+
+message MonitorRequest { CognitiveProcess process = 1; }
+message MonitorResponse { bool tracked = 1; }
+
+message StrategySelectionRequest {
+  string problem_context = 1;
+  repeated string candidate_strategies = 2;
+}
+message StrategySelectionResponse {
+  string selected_strategy = 1;
+  double confidence = 2;
+}
+
+message LearningGap {
+  string id = 1;
+  string domain = 2;
+  string description = 3;
+  double severity = 4;
+}
+
+message ListLearningGapsRequest {}
+message ListLearningGapsResponse { repeated LearningGap gaps = 1; }
+
+// Global assessment consumed by the orchestrator for adaptation.
+message SystemAssessmentRequest {}
+message SystemAssessmentResponse {
+  double global_cognitive_load = 1;
+  double identity_coherence = 2;
+  repeated string recommendations = 3;
+}
+
+service MetaCogService {
+  rpc Monitor(MonitorRequest) returns (MonitorResponse);
+  rpc SelectStrategy(StrategySelectionRequest) returns (StrategySelectionResponse);
+  rpc ListLearningGaps(ListLearningGapsRequest) returns (ListLearningGapsResponse);
+  rpc AssessSystem(SystemAssessmentRequest) returns (SystemAssessmentResponse);
+}

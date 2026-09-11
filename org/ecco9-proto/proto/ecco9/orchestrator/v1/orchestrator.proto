@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package ecco9.orchestrator.v1;
+
+import "ecco9/common/v1/common.proto";
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/orchestrator/v1;orchestratorv1";
+
+// Central orchestration: agent/task/workflow lifecycle plus the echo state
+// thread pool controller driven by global cognitive load.
+
+enum AgentType {
+  AGENT_TYPE_UNSPECIFIED = 0;
+  AGENT_TYPE_GENERAL = 1;
+  AGENT_TYPE_SPECIALIST = 2;
+  AGENT_TYPE_ORCHESTRATOR = 3;
+  AGENT_TYPE_REFLECTIVE = 4;
+}
+
+message Agent {
+  string id = 1;
+  string name = 2;
+  AgentType type = 3;
+  repeated string models = 4;
+  repeated string capabilities = 5;
+  map<string, string> config = 6;
+}
+
+message CreateAgentRequest { Agent agent = 1; }
+message CreateAgentResponse { string id = 1; }
+
+message Task {
+  string id = 1;
+  string type = 2;
+  string input = 3;
+  string output = 4;
+  string status = 5;
+  string agent_id = 6;
+}
+
+message SubmitTaskRequest { Task task = 1; }
+message SubmitTaskResponse { string id = 1; }
+
+message Workflow {
+  string id = 1;
+  string name = 2;
+  repeated Task tasks = 3;
+  map<string, string> metadata = 4;
+}
+
+message SubmitWorkflowRequest { Workflow workflow = 1; }
+message SubmitWorkflowResponse { string id = 1; }
+
+// Echo state thread pool controller: pushes adaptive concurrency targets.
+message ThreadPoolDirective {
+  string service_name = 1;   // e.g. "ecco9-reservoir"
+  int32 target_workers = 2;
+  double cycle_frequency_hz = 3; // for echobeats
+  string reason = 4;
+}
+
+message ApplyDirectiveRequest { ThreadPoolDirective directive = 1; }
+message ApplyDirectiveResponse { bool applied = 1; }
+
+// Stream of metrics from all services into the orchestrator.
+message ReportMetricsRequest { ecco9.common.v1.CognitiveMetrics metrics = 1; }
+message ReportMetricsResponse { bool accepted = 1; }
+
+service OrchestratorService {
+  rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse);
+  rpc SubmitTask(SubmitTaskRequest) returns (SubmitTaskResponse);
+  rpc SubmitWorkflow(SubmitWorkflowRequest) returns (SubmitWorkflowResponse);
+  rpc ApplyDirective(ApplyDirectiveRequest) returns (ApplyDirectiveResponse);
+  rpc ReportMetrics(ReportMetricsRequest) returns (ReportMetricsResponse);
+}
