@@ -236,10 +236,10 @@ func (rp *RealizationProcess) History(n int) []float64 {
 type Engine struct {
 	mu sync.RWMutex
 
-	knowing      *KnowingTriad
+	knowing       *KnowingTriad
 	understanding *UnderstandingTriad
-	wisdom       *WisdomTriad
-	realization  *RealizationProcess
+	wisdom        *WisdomTriad
+	realization   *RealizationProcess
 
 	// Integration metrics
 	OverallCoherence      float64

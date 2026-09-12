@@ -97,6 +97,12 @@ func (q *Queue) worker() {
 
 // process runs one job: resolve model, acquire a KV slot, stream tokens.
 func (q *Queue) process(job *Job) {
+	// Both channels must reach a terminal state on every return path. The HTTP
+	// adapter drains them until both are closed; leaving Results open after an
+	// early error would otherwise block the request forever.
+	defer close(job.Results)
+	defer close(job.Err)
+
 	req := job.Req
 	id := req.ModelID
 	if id == "" {
@@ -155,7 +161,6 @@ func (q *Queue) process(job *Job) {
 	held.CompletionTokens = int32(completionTokens)
 	job.Results <- *held
 	_ = m.Cache.Put(slot.SeqID, make([]int32, promptTokens+completionTokens))
-	close(job.Results)
 }
 
 const math_MaxInt32 = 1<<31 - 1

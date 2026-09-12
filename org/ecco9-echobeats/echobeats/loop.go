@@ -50,11 +50,11 @@ func (s StepType) String() string {
 
 // StepExecution records one emitted step execution.
 type StepExecution struct {
-	Step           int32         `json:"step"`
-	Phase          CognitivePhase `json:"phase"`
-	Thought        string        `json:"thought"`
-	ExecutedAtUnixMs int64       `json:"executed_at_unix_ms"`
-	RelevanceScore float64       `json:"relevance_score"`
+	Step             int32          `json:"step"`
+	Phase            CognitivePhase `json:"phase"`
+	Thought          string         `json:"thought"`
+	ExecutedAtUnixMs int64          `json:"executed_at_unix_ms"`
+	RelevanceScore   float64        `json:"relevance_score"`
 }
 
 // EngineState is the state of a SimpleInferenceEngine.
@@ -140,10 +140,14 @@ func (tp *ThreePhase) Start(freqHz float64) bool {
 	if freqHz > 0 {
 		tp.freqHz = freqHz
 	}
+	// Stop cancels a context permanently. Recreate it for every new lifecycle
+	// so a valid start-stop-start sequence continues producing steps.
+	tp.ctx, tp.cancel = context.WithCancel(context.Background())
+	ctx := tp.ctx
 	tp.running = true
-	go tp.cognitiveLoop()
+	go tp.cognitiveLoop(ctx)
 	for _, e := range tp.engines {
-		go tp.runEngine(e)
+		go tp.runEngine(ctx, e)
 	}
 	return true
 }
@@ -180,12 +184,12 @@ func (tp *ThreePhase) stepInterval() time.Duration {
 }
 
 // cognitiveLoop executes one step per tick (from three_phase_echobeats.go).
-func (tp *ThreePhase) cognitiveLoop() {
+func (tp *ThreePhase) cognitiveLoop(ctx context.Context) {
 	ticker := time.NewTicker(tp.stepInterval())
 	defer ticker.Stop()
 	for {
 		select {
-		case <-tp.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			tp.executeNextStep()
@@ -194,12 +198,12 @@ func (tp *ThreePhase) cognitiveLoop() {
 }
 
 // runEngine processes tasks for one SimpleInferenceEngine.
-func (tp *ThreePhase) runEngine(e *SimpleInferenceEngine) {
+func (tp *ThreePhase) runEngine(ctx context.Context, e *SimpleInferenceEngine) {
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-tp.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			tp.processEngineTask(e)
@@ -321,7 +325,8 @@ func (tp *ThreePhase) Unsubscribe(ch chan StepExecution) {
 	for i, s := range tp.subscribers {
 		if s == ch {
 			tp.subscribers = append(tp.subscribers[:i], tp.subscribers[i+1:]...)
-			close(ch)
+			// Do not close here: executeNextStep broadcasts from a snapshot taken
+			// outside the lock, which may still contain this channel.
 			return
 		}
 	}
@@ -358,12 +363,14 @@ func stepType(step int) StepType {
 
 func phaseForStep(step int) CognitivePhase {
 	switch {
-	case step >= 1 && step <= 7:
+	case step >= 1 && step <= 4:
 		return PhaseExpressive
-	case step >= 8 && step <= 12:
+	case step >= 5 && step <= 8:
 		return PhaseReflective
-	default:
+	case step >= 9 && step <= 12:
 		return PhaseIntegrative
+	default:
+		return PhaseExpressive
 	}
 }
 

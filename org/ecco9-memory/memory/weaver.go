@@ -38,7 +38,7 @@ type AdaptationCycle struct {
 
 // Adaptation is a single suggested structural change.
 type Adaptation struct {
-	Type      string  // "strengthen", "weaken", "remove"
+	Type      string // "strengthen", "weaken", "remove"
 	FromNode  string
 	ToNode    string
 	NewWeight float64

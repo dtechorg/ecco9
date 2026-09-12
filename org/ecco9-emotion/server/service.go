@@ -127,9 +127,9 @@ func (s *Service) Routes() http.Handler {
 			"emotion_blend":     blend,
 			"cognitive_effects": fx,
 			"aar": map[string]any{
-				"coherence":  coherence,
-				"stability":  stability,
-				"awareness":  awareness,
+				"coherence":   coherence,
+				"stability":   stability,
+				"awareness":   awareness,
 				"self_vector": self,
 			},
 		})

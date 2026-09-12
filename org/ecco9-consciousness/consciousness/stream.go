@@ -16,9 +16,9 @@ type LayerType int32
 
 const (
 	LayerUnspecified LayerType = iota
-	LayerSensory                  // basic perception layer
-	LayerIntegrative              // reflective integration layer
-	LayerMeta                     // meta-cognitive layer
+	LayerSensory               // basic perception layer
+	LayerIntegrative           // reflective integration layer
+	LayerMeta                  // meta-cognitive layer
 )
 
 func (l LayerType) String() string {
@@ -168,7 +168,10 @@ func (s *Stream) Unsubscribe(ch chan StreamEvent) {
 	for i, sub := range s.subscribers {
 		if sub == ch {
 			s.subscribers = append(s.subscribers[:i], s.subscribers[i+1:]...)
-			close(ch)
+			// broadcast sends from a subscriber snapshot after releasing the lock;
+			// closing here can therefore race with a send and panic. Once removed,
+			// the channel becomes unreachable after the handler returns and is
+			// reclaimed without requiring an explicit close.
 			return
 		}
 	}

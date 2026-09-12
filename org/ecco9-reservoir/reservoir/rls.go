@@ -14,7 +14,7 @@ type OnlineTrainer struct {
 	reservoir *EchoStateReservoir
 
 	// RLS state
-	forgettingFactor float64   // lambda, e.g. 0.99
+	forgettingFactor float64     // lambda, e.g. 0.99
 	p                [][]float64 // inverse correlation matrix
 	w                [][]float64 // readout weights [outDim][stateDim+1] (+bias)
 	outDim           int

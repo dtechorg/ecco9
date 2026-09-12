@@ -177,11 +177,11 @@ func (sdw *SevenDimensionalWisdom) takeSnapshot() {
 
 // Assessment is the seven-dimensional wisdom snapshot for GetWisdom.
 type Assessment struct {
-	Dimensions  []float64
-	Overall     float64
-	Coherence   float64
-	Evolution   float64
-	AssessedAt  time.Time
+	Dimensions []float64
+	Overall    float64
+	Coherence  float64
+	Evolution  float64
+	AssessedAt time.Time
 }
 
 // Assess returns the current seven-dimensional assessment.

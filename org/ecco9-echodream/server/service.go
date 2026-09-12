@@ -64,11 +64,11 @@ func (s *Service) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/echodream/memories", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Memory struct {
-				ID             string  `json:"id"`
-				TimestampMs    int64   `json:"timestamp_unix_ms"`
-				Content        string  `json:"content"`
-				Importance     float64 `json:"importance"`
-				Consolidated   bool    `json:"consolidated"`
+				ID           string  `json:"id"`
+				TimestampMs  int64   `json:"timestamp_unix_ms"`
+				Content      string  `json:"content"`
+				Importance   float64 `json:"importance"`
+				Consolidated bool    `json:"consolidated"`
 			} `json:"memory"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

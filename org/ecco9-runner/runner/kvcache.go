@@ -8,7 +8,7 @@ import (
 
 // KV-cache errors, adapted from kvcache/cache.go.
 var (
-	ErrKVCacheFull = errors.New("could not find a kv cache slot")
+	ErrKVCacheFull  = errors.New("could not find a kv cache slot")
 	ErrNotSupported = errors.New("model does not support operation")
 )
 

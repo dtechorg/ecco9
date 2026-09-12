@@ -8,19 +8,42 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect legacy runtime changes
+        id: changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if git diff --quiet "$BASE" HEAD -- . \
+            ':(exclude)org/**' \
+            ':(exclude).github/workflows/**'; then
+            echo "legacy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "legacy=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Tidy Go Modules
+        if: steps.changes.outputs.legacy == 'true'
         run: go mod tidy
 
       - name: Build echollama
+        if: steps.changes.outputs.legacy == 'true'
         run: go build -o echollama .
 
       - name: Start echollama server (background)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           ./echollama serve &  # Start server in background
           sleep 8
 
       - name: Load stories15M.gguf test model
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           echo "FROM $(pwd)/models/stories15M.gguf" > models/stories15M.modelfile
           echo "PARAMETER temperature 0.7" >> models/stories15M.modelfile
@@ -30,6 +53,7 @@ jobs:
           sleep 2
 
       - name: Send timestamped JSON requests (verbose)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           TS1=$(date --iso-8601=ns)
           TS2=$(date --iso-8601=ns)
@@ -51,15 +75,18 @@ jobs:
                 }' | tee response2.json
 
       - name: Show full JSON responses
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           cat response*.json
 
       - name: Show token info for both responses
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           jq .eval_count response1.json
           jq .eval_count response2.json
 
       - name: End-of-workflow verification (fail if responses missing tokens)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           test "$(jq '.eval_count' response1.json)" -gt 0
           test "$(jq '.eval_count' response2.json)" -gt 0

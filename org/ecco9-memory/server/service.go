@@ -12,10 +12,10 @@ import (
 
 // Service bundles the hypergraph, weaver, persistence, and health reporter.
 type Service struct {
-	Graph   *memory.HypergraphMemory
-	Weaver  *memory.MemoryWeaver
-	Store   *memory.PersistentStore
-	Health  *health.Reporter
+	Graph  *memory.HypergraphMemory
+	Weaver *memory.MemoryWeaver
+	Store  *memory.PersistentStore
+	Health *health.Reporter
 }
 
 // New constructs the service and restores any persisted snapshot.
@@ -136,10 +136,10 @@ func (s *Service) Routes() http.Handler {
 		cycle := s.Weaver.WeaveConnections()
 		nodes, edges, hyper := s.Graph.Stats()
 		writeJSON(w, map[string]any{
-			"cycle":        cycle,
-			"connections":  s.Weaver.ConnectionCount(),
-			"node_count":   nodes,
-			"edge_count":   edges,
+			"cycle":           cycle,
+			"connections":     s.Weaver.ConnectionCount(),
+			"node_count":      nodes,
+			"edge_count":      edges,
 			"hyperedge_count": hyper,
 		})
 	})

@@ -81,17 +81,17 @@ const (
 
 // StepExecution mirrors ecco9.echobeats.v1.StepExecution.
 type StepExecution struct {
-	Step          int32
-	Phase         CognitivePhase
-	Thought       string
-	ExecutedAt    time.Time
+	Step           int32
+	Phase          CognitivePhase
+	Thought        string
+	ExecutedAt     time.Time
 	RelevanceScore float64
 }
 
 // ThreadPoolDirective mirrors ecco9.orchestrator.v1.ThreadPoolDirective.
 type ThreadPoolDirective struct {
-	ServiceName       string
-	TargetWorkers     int32
-	CycleFrequencyHz  float64
-	Reason            string
+	ServiceName      string
+	TargetWorkers    int32
+	CycleFrequencyHz float64
+	Reason           string
 }

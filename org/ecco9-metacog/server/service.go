@@ -37,14 +37,14 @@ func (s *Service) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/metacog/monitor", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Process struct {
-				ID          string  `json:"id"`
-				Type        string  `json:"type"`
-				Service     string  `json:"service"`
+				ID           string  `json:"id"`
+				Type         string  `json:"type"`
+				Service      string  `json:"service"`
 				QualityScore float64 `json:"quality_score"`
-				Progress    float64 `json:"progress"`
-				Completed   bool    `json:"completed"`
-				Success     bool    `json:"success"`
-				StartedAtMs int64   `json:"started_at_unix_ms"`
+				Progress     float64 `json:"progress"`
+				Completed    bool    `json:"completed"`
+				Success      bool    `json:"success"`
+				StartedAtMs  int64   `json:"started_at_unix_ms"`
 			} `json:"process"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

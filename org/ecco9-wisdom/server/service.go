@@ -80,12 +80,12 @@ func (s *Service) Routes() http.Handler {
 		s.Health.SetCoherence(a.Coherence)
 		writeJSON(w, map[string]any{
 			"assessment": map[string]any{
-				"dimensions":            a.Dimensions,
-				"dimension_names":       wisdom.DimensionNames,
-				"overall":               a.Overall,
-				"coherence":             a.Coherence,
-				"evolution_rate":        a.Evolution,
-				"assessed_at_unix_ms":   a.AssessedAt.UnixMilli(),
+				"dimensions":          a.Dimensions,
+				"dimension_names":     wisdom.DimensionNames,
+				"overall":             a.Overall,
+				"coherence":           a.Coherence,
+				"evolution_rate":      a.Evolution,
+				"assessed_at_unix_ms": a.AssessedAt.UnixMilli(),
 			},
 		})
 	})
@@ -121,13 +121,13 @@ func (s *Service) Routes() http.Handler {
 	// interest engagement, and goal progress.
 	mux.HandleFunc("POST /v1/wisdom/update", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			GraphDepth        float64 `json:"graph_depth"`
-			GraphBreadth      float64 `json:"graph_breadth"`
-			EdgeDensity       float64 `json:"edge_density"`
-			SkillProficiency  float64 `json:"skill_proficiency"`
-			AarCoherence      float64 `json:"aar_coherence"`
-			MoralityScore     float64 `json:"morality_score"`
-			GoalTimeHorizon   float64 `json:"goal_time_horizon"`
+			GraphDepth       float64 `json:"graph_depth"`
+			GraphBreadth     float64 `json:"graph_breadth"`
+			EdgeDensity      float64 `json:"edge_density"`
+			SkillProficiency float64 `json:"skill_proficiency"`
+			AarCoherence     float64 `json:"aar_coherence"`
+			MoralityScore    float64 `json:"morality_score"`
+			GoalTimeHorizon  float64 `json:"goal_time_horizon"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -174,12 +174,12 @@ func (s *Service) Routes() http.Handler {
 }
 
 type goalJSON struct {
-	ID             string  `json:"id"`
-	Type           int     `json:"type"`
-	Description    string  `json:"description"`
-	Priority       float64 `json:"priority"`
-	Progress       float64 `json:"progress"`
-	CreatedAtMs    int64   `json:"created_at_unix_ms"`
+	ID          string  `json:"id"`
+	Type        int     `json:"type"`
+	Description string  `json:"description"`
+	Priority    float64 `json:"priority"`
+	Progress    float64 `json:"progress"`
+	CreatedAtMs int64   `json:"created_at_unix_ms"`
 }
 
 func fromJSONGoal(g goalJSON) wisdom.Goal {

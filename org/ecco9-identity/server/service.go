@@ -5,6 +5,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	"github.com/dtechorg/ecco9-identity/identity"
 	"github.com/dtechorg/ecco9-sdk-go/health"
@@ -13,6 +14,7 @@ import (
 // Service bundles the embedding registry, persona manager, theory-of-mind
 // module, consciousness state store, and health reporter.
 type Service struct {
+	stateMu  sync.Mutex
 	Registry *identity.Registry
 	ToM      *identity.TheoryOfMind
 	Store    *identity.StateStore
@@ -64,8 +66,14 @@ func (s *Service) Routes() http.Handler {
 			return
 		}
 		s.Health.SetCoherence(coherence)
+		s.stateMu.Lock()
 		s.State.AwarenessLevel = coherence
-		_ = s.Store.Save(s.State)
+		err = s.Store.Save(s.State)
+		s.stateMu.Unlock()
+		if err != nil {
+			http.Error(w, "persist identity state: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, map[string]any{"verified": verified, "coherence": coherence})
 	})
 
@@ -98,8 +106,14 @@ func (s *Service) Routes() http.Handler {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
+		s.stateMu.Lock()
 		s.State.ActivePersona = applied
-		_ = s.Store.Save(s.State)
+		err = s.Store.Save(s.State)
+		s.stateMu.Unlock()
+		if err != nil {
+			http.Error(w, "persist identity state: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, map[string]any{"applied_persona": applied})
 	})
 

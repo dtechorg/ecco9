@@ -174,7 +174,7 @@ type Engine struct {
 	population []*Genome
 	jobs       map[string]*EvolutionJob
 
-	entelechy    EntelechyGenome
+	entelechy     EntelechyGenome
 	actualization float64
 	purpose       float64
 	fragmentation float64
@@ -246,7 +246,7 @@ func fitnessOf(g *Genome) float64 {
 		diff := v - target
 		totalError += diff * diff
 	}
-	return 1.0 / (1.0+math.Sqrt(totalError))
+	return 1.0 / (1.0 + math.Sqrt(totalError))
 }
 
 // Evolve runs a synchronous genetic algorithm for the requested number of
@@ -257,7 +257,7 @@ func (e *Engine) Evolve(populationSize, generations int, mutationRate float64) *
 
 	e.counter++
 	job := &EvolutionJob{
-		ID: fmt.Sprintf("evolve-%d-%d", time.Now().Unix(), e.counter),
+		ID:      fmt.Sprintf("evolve-%d-%d", time.Now().Unix(), e.counter),
 		Running: true, Generations: generations, StartedAt: time.Now(),
 	}
 	e.jobs[job.ID] = job
@@ -383,11 +383,11 @@ func (e *Engine) Status() map[string]any {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return map[string]any{
-		"population_size":     len(e.population),
-		"evolution_jobs":      len(e.jobs),
+		"population_size":       len(e.population),
+		"evolution_jobs":        len(e.jobs),
 		"overall_actualization": e.actualization,
-		"entelechy_level":     e.entelechy.Level(),
-		"entelechy_fitness":   e.entelechy.Fitness(),
+		"entelechy_level":       e.entelechy.Level(),
+		"entelechy_fitness":     e.entelechy.Fitness(),
 	}
 }
 

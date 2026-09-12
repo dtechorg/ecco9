@@ -189,7 +189,7 @@ func (m *Monitor) RecordDecision(context, chosen, rationale string, confidence f
 	defer m.mu.Unlock()
 	m.counter++
 	d := &Decision{
-		ID: fmt.Sprintf("decision-%d-%d", time.Now().Unix(), m.counter),
+		ID:        fmt.Sprintf("decision-%d-%d", time.Now().Unix(), m.counter),
 		Timestamp: time.Now(), Context: context, Chosen: chosen,
 		Rationale: rationale, Confidence: clamp01(confidence), UrgencyLevel: 0.5,
 	}

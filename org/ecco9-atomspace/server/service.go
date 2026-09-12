@@ -35,8 +35,8 @@ func (s *Service) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/atomspace/atoms", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Atom struct {
-				Type atomspace.AtomType   `json:"type"`
-				Name string               `json:"name"`
+				Type  atomspace.AtomType    `json:"type"`
+				Name  string                `json:"name"`
 				Truth *atomspace.TruthValue `json:"truth"`
 			} `json:"atom"`
 		}
@@ -57,9 +57,9 @@ func (s *Service) Routes() http.Handler {
 	mux.HandleFunc("POST /v1/atomspace/links", func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Link struct {
-				Type    atomspace.LinkType   `json:"type"`
-				Outgoing []string            `json:"outgoing_atom_ids"`
-				Truth   *atomspace.TruthValue `json:"truth"`
+				Type     atomspace.LinkType    `json:"type"`
+				Outgoing []string              `json:"outgoing_atom_ids"`
+				Truth    *atomspace.TruthValue `json:"truth"`
 			} `json:"link"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -31,10 +31,10 @@ func NewThreadPoolController(minWorkers, maxWorkers int) *ThreadPoolController {
 		maxWorkers = minWorkers
 	}
 	c := &ThreadPoolController{
-		min:   minWorkers,
-		max:   maxWorkers,
-		jobs:  make(chan func(), 1024),
-		done:  make(chan struct{}),
+		min:  minWorkers,
+		max:  maxWorkers,
+		jobs: make(chan func(), 1024),
+		done: make(chan struct{}),
 	}
 	c.SetWorkers(minWorkers)
 	return c

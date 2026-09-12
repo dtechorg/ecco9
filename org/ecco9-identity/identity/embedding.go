@@ -27,8 +27,8 @@ type IdentityEmbedding struct {
 // Persona describes a named persona configuration (from the identity
 // kernel's persona model: essence, core characteristics, cognitive style).
 type Persona struct {
-	Name           string             `json:"name"`
-	Essence        string             `json:"essence"`
+	Name            string             `json:"name"`
+	Essence         string             `json:"essence"`
 	Characteristics map[string]float64 `json:"characteristics"`
 }
 
@@ -37,9 +37,9 @@ type Registry struct {
 	mu sync.RWMutex
 
 	embeddings map[string]*IdentityEmbedding
-	personas   map[string]*Persona     // persona name -> definition
-	active     map[string]string       // identity ID -> active persona name
-	threshold  float64                 // coherence threshold for VerifyIdentity
+	personas   map[string]*Persona // persona name -> definition
+	active     map[string]string   // identity ID -> active persona name
+	threshold  float64             // coherence threshold for VerifyIdentity
 }
 
 // NewRegistry creates a registry seeded with the Deep Tree Echo personas.

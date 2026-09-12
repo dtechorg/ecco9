@@ -44,10 +44,10 @@ type EchoStateReservoir struct {
 	inputScaling   float64
 	leakRate       float64
 
-	size           int
-	state          []float64
-	weights        [][]float64
-	inputWeights   [][]float64
+	size         int
+	state        []float64
+	weights      [][]float64
+	inputWeights [][]float64
 
 	// Online readout (trained via RLS).
 	readout [][]float64

@@ -120,12 +120,12 @@ type System struct {
 // mild interest as the default cognitive state.
 func NewSystem() *System {
 	s := &System{
-		emotions:  make(map[EmotionType]*Emotion),
+		emotions:     make(map[EmotionType]*Emotion),
 		emotionBlend: make(map[EmotionType]float64),
-		history:   make([]EmotionEvent, 0, 100),
-		decayRate: 0.1,
-		arousal:   0.5,
-		valence:   0.5,
+		history:      make([]EmotionEvent, 0, 100),
+		decayRate:    0.1,
+		arousal:      0.5,
+		valence:      0.5,
 	}
 	for et := EmotionInterest; et <= EmotionGuilt; et++ {
 		s.emotions[et] = createEmotion(et, 0.1)

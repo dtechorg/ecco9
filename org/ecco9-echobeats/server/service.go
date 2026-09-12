@@ -98,12 +98,12 @@ func (s *Service) Routes() http.Handler {
 		eng := s.Loop.EngineStats()
 		scheduled, processed, pending := s.Scheduler.Stats()
 		writeJSON(w, map[string]any{
-			"engine1_tasks":       eng[0],
-			"engine2_tasks":       eng[1],
-			"engine3_tasks":       eng[2],
-			"events_scheduled":    scheduled,
-			"events_processed":    processed,
-			"events_pending":      pending,
+			"engine1_tasks":    eng[0],
+			"engine2_tasks":    eng[1],
+			"engine3_tasks":    eng[2],
+			"events_scheduled": scheduled,
+			"events_processed": processed,
+			"events_pending":   pending,
 		})
 	})
 

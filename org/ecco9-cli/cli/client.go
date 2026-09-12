@@ -19,8 +19,8 @@ import (
 
 // Client is a small HTTP SDK for the ecco9 gateway.
 type Client struct {
-	base   *url.URL
-	http   *http.Client
+	base *url.URL
+	http *http.Client
 	// APIKey, when set, is sent as the X-Ecco9-Key header.
 	APIKey string
 }

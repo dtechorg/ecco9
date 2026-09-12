@@ -25,7 +25,7 @@ type HomeostaticController struct {
 	targets map[string]contracts.ThreadPoolDirective
 
 	// Hysteresis to avoid oscillation.
-	lastAdjust time.Time
+	lastAdjust  time.Time
 	minInterval time.Duration
 }
 

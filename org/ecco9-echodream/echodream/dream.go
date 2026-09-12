@@ -51,11 +51,11 @@ type EpisodicMemory struct {
 
 // KnowledgeItem is consolidated knowledge distilled from memories.
 type KnowledgeItem struct {
-	ID               string
-	Content          string
-	SourceMemoryIDs  []string
-	Confidence       float64
-	Created          time.Time
+	ID              string
+	Content         string
+	SourceMemoryIDs []string
+	Confidence      float64
+	Created         time.Time
 }
 
 // WisdomInsight is wisdom extracted from consolidated knowledge.
@@ -69,13 +69,13 @@ type WisdomInsight struct {
 
 // Dream records one completed dream cycle.
 type Dream struct {
-	CycleID          string
-	StartedAt        time.Time
-	CompletedAt      time.Time
-	Consolidations   int
-	Patterns         []string
-	Wisdom           []WisdomInsight
-	Narrative        string
+	CycleID        string
+	StartedAt      time.Time
+	CompletedAt    time.Time
+	Consolidations int
+	Patterns       []string
+	Wisdom         []WisdomInsight
+	Narrative      string
 }
 
 // System is the EchoDream knowledge integration and consolidation system
@@ -88,9 +88,9 @@ type System struct {
 	wisdomInsights        []WisdomInsight
 	dreams                []*Dream
 
-	dreaming   bool
-	phase      DreamPhase
-	cycleID    string
+	dreaming    bool
+	phase       DreamPhase
+	cycleID     string
 	maxMemories int
 
 	dreamCycles       uint64
@@ -186,8 +186,9 @@ func (s *System) setPhase(p DreamPhase) {
 	s.mu.Unlock()
 }
 
-// collectMemories marks unconsolidated memories as processed, honoring
-// the cycle's maxMemories cap, and returns them in importance order.
+// collectMemories selects unconsolidated memories, honoring the cycle's
+// maxMemories cap, and returns them in importance order. Selection does not
+// mutate durability state; only a successful consolidation may do that.
 func (s *System) collectMemories() []EpisodicMemory {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -213,10 +214,8 @@ func (s *System) collectMemories() []EpisodicMemory {
 	}
 	out := make([]EpisodicMemory, 0, limit)
 	for _, i := range idx[:limit] {
-		s.episodicMemories[i].Consolidated = true
 		out = append(out, s.episodicMemories[i])
 	}
-	s.memoriesProcessed += uint64(len(out))
 	return out
 }
 
@@ -292,6 +291,15 @@ func (s *System) consolidateGroups(groups [][]EpisodicMemory) []consolidation {
 			Created:         time.Now(),
 		}
 		s.consolidatedKnowledge = append(s.consolidatedKnowledge, item)
+		for _, sourceID := range sourceIDs {
+			for i := range s.episodicMemories {
+				if s.episodicMemories[i].ID == sourceID && !s.episodicMemories[i].Consolidated {
+					s.episodicMemories[i].Consolidated = true
+					s.memoriesProcessed++
+					break
+				}
+			}
+		}
 		out = append(out, consolidation{
 			sourceIDs: sourceIDs, knowledge: item, theme: theme, strength: 0.7,
 		})
@@ -330,8 +338,8 @@ func (s *System) extractWisdom(consolidations []consolidation, patterns []string
 		s.counter++
 		depth := clamp01(0.5 + 0.1*float64(len(consolidations)))
 		w := WisdomInsight{
-			ID: fmt.Sprintf("wisdom-%d-%d", time.Now().UnixNano(), s.counter),
-			Insight: fmt.Sprintf("Through reflection, I notice patterns of %s emerging in my experiences", patterns[0]),
+			ID:            fmt.Sprintf("wisdom-%d-%d", time.Now().UnixNano(), s.counter),
+			Insight:       fmt.Sprintf("Through reflection, I notice patterns of %s emerging in my experiences", patterns[0]),
 			Depth:         depth,
 			Applicability: clamp01(0.6 + 0.05*float64(len(patterns))),
 			Created:       time.Now(),
@@ -345,7 +353,7 @@ func (s *System) extractWisdom(consolidations []consolidation, patterns []string
 	if len(consolidations) > 5 {
 		s.counter++
 		w := WisdomInsight{
-			ID: fmt.Sprintf("wisdom-%d-%d", time.Now().UnixNano(), s.counter),
+			ID:            fmt.Sprintf("wisdom-%d-%d", time.Now().UnixNano(), s.counter),
 			Insight:       "I am becoming more aware of how I learn and adapt through experience",
 			Depth:         0.8,
 			Applicability: 0.8,
