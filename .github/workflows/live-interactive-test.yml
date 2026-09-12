@@ -8,11 +8,32 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect legacy runtime changes
+        id: changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if git diff --quiet "$BASE" HEAD -- . \
+            ':(exclude)org/**' \
+            ':(exclude).github/workflows/**'; then
+            echo "legacy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "legacy=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build echollama
+        if: steps.changes.outputs.legacy == 'true'
         run: go build -o echollama .
 
       - name: Install and configure nginx proxy
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y nginx
@@ -39,16 +60,19 @@ jobs:
           sudo systemctl start nginx
 
       - name: Start echollama server (background on port 11435)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           OLLAMA_HOST=127.0.0.1:11435 ./echollama serve &
           sleep 8
 
       - name: Confirm echollama server is live
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           sleep 2
           curl -v http://127.0.0.1:11435/healthz || (echo "Server not responding on health check"; exit 1)
 
       - name: Load tiny test model (via proxy)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           OLLAMA_HOST=127.0.0.1:11435 ./echollama pull qwen2.5:0.5b
           # Store model info in models directory to show it's "permanently" available
@@ -57,6 +81,7 @@ jobs:
           sleep 2
 
       - name: Send timestamped JSON requests (verbose)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           TS1=$(date --iso-8601=ns)
           TS2=$(date --iso-8601=ns)
@@ -78,15 +103,18 @@ jobs:
                 }' | tee response2.json
 
       - name: Show full JSON responses
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           cat response*.json
 
       - name: Show token info for both responses
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           jq .tokens response1.json
           jq .tokens response2.json
 
       - name: End-of-workflow verification (fail if responses missing tokens)
+        if: steps.changes.outputs.legacy == 'true'
         run: |
           test "$(jq '.tokens | length' response1.json)" -gt 0
           test "$(jq '.tokens | length' response2.json)" -gt 0

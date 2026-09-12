@@ -1,0 +1,62 @@
+# NATS Helm chart values for the ecco9 event mesh.
+# Schema: official nats/nats chart 2.x (https://github.com/nats-io/k8s).
+config:
+  cluster:
+    enabled: true
+    replicas: 3
+
+  jetstream:
+    enabled: true
+    fileStore:
+      enabled: true
+      maxSize: 18Gi
+      pvc:
+        enabled: true
+        size: 20Gi
+        storageClassName: ssd
+    memoryStore:
+      enabled: true
+      maxSize: 1Gi
+
+  # A named gateway endpoint is enabled for future supercluster peers. Remote
+  # gateway URLs must be supplied per environment through an overlay.
+  gateway:
+    enabled: true
+    merge:
+      name: ecco9-region-a
+
+  monitor:
+    enabled: true
+
+container:
+  image:
+    repository: nats
+    tag: 2.14.6-alpine
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+promExporter:
+  enabled: true
+  podMonitor:
+    enabled: true
+
+service:
+  enabled: true
+  ports:
+    nats:
+      enabled: true
+    gateway:
+      enabled: true
+    monitor:
+      enabled: true
+
+podTemplate:
+  topologySpreadConstraints:
+    kubernetes.io/hostname:
+      maxSkew: 1
+      whenUnsatisfiable: ScheduleAnyway

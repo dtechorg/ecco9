@@ -1,0 +1,101 @@
+# Kubernetes-native CRDs for cognitive agents, tasks, and workflows.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: cognitiveagents.ecco9.io
+spec:
+  group: ecco9.io
+  scope: Namespaced
+  names:
+    plural: cognitiveagents
+    singular: cognitiveagent
+    kind: CognitiveAgent
+    shortNames: [cagent]
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name: { type: string }
+                type: { type: string, enum: [general, specialist, orchestrator, reflective] }
+                models: { type: array, items: { type: string } }
+                capabilities: { type: array, items: { type: string } }
+            status:
+              type: object
+              properties:
+                state: { type: string }
+                identityCoherence: { type: number }
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: cognitivetasks.ecco9.io
+spec:
+  group: ecco9.io
+  scope: Namespaced
+  names:
+    plural: cognitivetasks
+    singular: cognitivetask
+    kind: CognitiveTask
+    shortNames: [ctask]
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                type: { type: string }
+                input: { type: string }
+                agentRef: { type: string }
+            status:
+              type: object
+              properties:
+                status: { type: string }
+                output: { type: string }
+      subresources:
+        status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: cognitiveworkflows.ecco9.io
+spec:
+  group: ecco9.io
+  scope: Namespaced
+  names:
+    plural: cognitiveworkflows
+    singular: cognitiveworkflow
+    kind: CognitiveWorkflow
+    shortNames: [cwf]
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name: { type: string }
+                tasks: { type: array, items: { type: object, x-kubernetes-preserve-unknown-fields: true } }
+            status:
+              type: object
+              properties:
+                phase: { type: string }
+      subresources:
+        status: {}

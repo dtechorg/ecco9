@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package ecco9.memory.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/memory/v1;memoryv1";
+
+// Hypergraph memory service backed by PostgreSQL/Supabase with Redis cache.
+
+enum NodeType {
+  NODE_TYPE_UNSPECIFIED = 0;
+  NODE_TYPE_CONCEPT = 1;
+  NODE_TYPE_EPISODE = 2;
+  NODE_TYPE_PATTERN = 3;
+  NODE_TYPE_ANOMALY = 4;
+  NODE_TYPE_ECHO_SIGNATURE = 5;
+}
+
+message MemoryNode {
+  string id = 1;
+  NodeType type = 2;
+  string content = 3;
+  map<string, string> metadata = 4;
+  repeated double embedding = 5; // 768-dimensional identity vector
+  int64 created_at_unix_ms = 6;
+}
+
+message MemoryEdge {
+  string id = 1;
+  string source_id = 2;
+  string target_id = 3;
+  string relation = 4;
+  double weight = 5;
+}
+
+message HyperEdge {
+  string id = 1;
+  repeated string node_ids = 2;
+  string relation = 3;
+  double weight = 4;
+}
+
+message AddNodeRequest { MemoryNode node = 1; }
+message AddNodeResponse { string id = 1; }
+
+message AddEdgeRequest { MemoryEdge edge = 1; }
+message AddEdgeResponse { string id = 1; }
+
+message AddHyperEdgeRequest { HyperEdge hyperedge = 1; }
+message AddHyperEdgeResponse { string id = 1; }
+
+message TraverseRequest {
+  string start_node_id = 1;
+  int32 max_depth = 2;
+  string relation_filter = 3;
+}
+message TraverseResponse {
+  repeated MemoryNode nodes = 1;
+  repeated MemoryEdge edges = 2;
+}
+
+message SimilaritySearchRequest {
+  repeated double embedding = 1;
+  int32 top_k = 2;
+}
+message SimilaritySearchResponse { repeated MemoryNode nodes = 1; }
+
+service MemoryService {
+  rpc AddNode(AddNodeRequest) returns (AddNodeResponse);
+  rpc AddEdge(AddEdgeRequest) returns (AddEdgeResponse);
+  rpc AddHyperEdge(AddHyperEdgeRequest) returns (AddHyperEdgeResponse);
+  rpc Traverse(TraverseRequest) returns (TraverseResponse);
+  rpc SimilaritySearch(SimilaritySearchRequest) returns (SimilaritySearchResponse);
+}

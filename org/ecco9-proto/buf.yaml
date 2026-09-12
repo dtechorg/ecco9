@@ -1,0 +1,17 @@
+version: v2
+modules:
+  - path: proto
+    name: buf.build/dtechorg/ecco9-proto
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+    # Unary/streaming adapters intentionally share the same wire messages,
+    # and RunnerService reuses the gateway generation contract.
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+breaking:
+  use:
+    - FILE

@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package ecco9.relevance.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/relevance/v1;relevancev1";
+
+// Vervaeke-style relevance realization as a stream scoring service.
+
+message ScoreRequest {
+  string event_id = 1;
+  string event_topic = 2;
+  bytes payload = 3;
+  map<string, string> context = 4;
+}
+
+message ScoreResponse {
+  string event_id = 1;
+  double relevance = 2;      // [0,1]
+  double salience = 3;
+  double affordance = 4;
+  repeated string facets = 5; // knowing/understanding/wisdom triad facets
+}
+
+service RelevanceService {
+  rpc Score(ScoreRequest) returns (ScoreResponse);
+  rpc ScoreStream(stream ScoreRequest) returns (stream ScoreResponse);
+}

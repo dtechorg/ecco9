@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package ecco9.echodream.v1;
+
+option go_package = "github.com/dtechorg/ecco9-sdk-go/gen/ecco9/echodream/v1;echodreamv1";
+
+// EchoDream: knowledge integration and consolidation during sleep cycles.
+
+enum DreamPhase {
+  DREAM_PHASE_UNSPECIFIED = 0;
+  DREAM_PHASE_COLLECTION = 1;
+  DREAM_PHASE_CONSOLIDATION = 2;
+  DREAM_PHASE_WISDOM_EXTRACTION = 3;
+  DREAM_PHASE_INTEGRATION = 4;
+}
+
+message EpisodicMemory {
+  string id = 1;
+  int64 timestamp_unix_ms = 2;
+  string content = 3;
+  double importance = 4;
+  bool consolidated = 5;
+}
+
+message KnowledgeItem {
+  string id = 1;
+  string content = 2;
+  repeated string source_memory_ids = 3;
+  double confidence = 4;
+}
+
+message WisdomInsight {
+  string id = 1;
+  string insight = 2;
+  double depth = 3;
+  double applicability = 4;
+}
+
+message StartDreamCycleRequest {
+  int32 max_memories = 1;
+}
+message StartDreamCycleResponse { string cycle_id = 1; }
+
+message GetDreamStateRequest {}
+message GetDreamStateResponse {
+  bool dreaming = 1;
+  DreamPhase phase = 2;
+  uint64 cycles_completed = 3;
+  uint64 memories_processed = 4;
+  uint64 wisdom_extracted = 5;
+}
+
+message SubmitMemoryRequest { EpisodicMemory memory = 1; }
+message SubmitMemoryResponse { bool queued = 1; }
+
+service EchoDreamService {
+  rpc StartDreamCycle(StartDreamCycleRequest) returns (StartDreamCycleResponse);
+  rpc GetDreamState(GetDreamStateRequest) returns (GetDreamStateResponse);
+  rpc SubmitMemory(SubmitMemoryRequest) returns (SubmitMemoryResponse);
+}

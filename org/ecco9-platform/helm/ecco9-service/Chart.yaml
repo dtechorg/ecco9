@@ -1,0 +1,5 @@
+apiVersion: v2
+name: ecco9-service
+description: Base Helm chart library for all ecco9 cognitive services
+type: library
+version: 1.0.0

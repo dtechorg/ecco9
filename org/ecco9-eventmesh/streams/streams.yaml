@@ -1,0 +1,38 @@
+# JetStream stream definitions, applied by an idempotent provisioning Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ecco9-eventmesh-provision
+  namespace: ecco9-data
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: nats-cli
+          image: natsio/nats-box:0.19.7
+          command:
+            - sh
+            - -ec
+            - |
+              ensure_stream() {
+                name="$1"
+                subjects="$2"
+                max_age="$3"
+                if nats stream info "$name" --server nats:4222 >/dev/null 2>&1; then
+                  nats stream update "$name" \
+                    --subjects "$subjects" \
+                    --retention limits --max-age "$max_age" \
+                    --replicas 3 --force --server nats:4222
+                else
+                  nats stream add "$name" \
+                    --subjects "$subjects" \
+                    --retention limits --max-age "$max_age" --storage file \
+                    --replicas 3 --defaults --server nats:4222
+                fi
+              }
+
+              ensure_stream ECHO-CORE "echo.thoughts,echo.emotions,echo.resonance" 24h
+              ensure_stream ECHO-MEMORY "echo.memories,echo.dreams" 168h
+              ensure_stream ECHO-CONTROL "echo.metrics,echo.directives,echo.training" 72h

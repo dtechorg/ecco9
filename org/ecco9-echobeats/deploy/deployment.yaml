@@ -1,0 +1,66 @@
+# EchoBeats deployed as a leader-elected singleton loop with replicas ready
+# to take over the 12-step cognitive rhythm on failover.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecco9-echobeats
+  namespace: ecco9-core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecco9-echobeats
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecco9-echobeats
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: echobeats
+          image: ghcr.io/dtechorg/ecco9-echobeats:latest
+          ports:
+            - { name: http, containerPort: 8085 }
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - name: ECCO9_ECHOBEATS_ADDR
+              value: ":8085"
+            - name: ECCO9_NATS_URL
+              value: "nats://nats.ecco9-data:4222"
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: 1, memory: 1Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecco9-echobeats
+  namespace: ecco9-core
+spec:
+  selector:
+    app.kubernetes.io/name: ecco9-echobeats
+  ports:
+    - { name: http, port: 8085, targetPort: http }
+---
+# HPA on the cognitive_load custom metric, not CPU.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ecco9-echobeats
+  namespace: ecco9-core
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ecco9-echobeats
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Pods
+      pods:
+        metric: { name: ecco9_cognitive_load }
+        target: { type: AverageValue, averageValue: "0.6" }

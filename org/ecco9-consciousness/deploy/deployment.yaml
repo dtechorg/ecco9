@@ -1,0 +1,68 @@
+# Stream of consciousness deployed with session affinity: SSE streams are
+# long-lived, so clients must stay pinned to their pod.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecco9-consciousness
+  namespace: ecco9-core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecco9-consciousness
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecco9-consciousness
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: consciousness
+          image: ghcr.io/dtechorg/ecco9-consciousness:latest
+          ports:
+            - { name: http, containerPort: 8086 }
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - name: ECCO9_CONSCIOUSNESS_ADDR
+              value: ":8086"
+            - name: ECCO9_NATS_URL
+              value: "nats://nats.ecco9-data:4222"
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          resources:
+            requests: { cpu: 500m, memory: 512Mi }
+            limits: { cpu: 1, memory: 2Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecco9-consciousness
+  namespace: ecco9-core
+spec:
+  selector:
+    app.kubernetes.io/name: ecco9-consciousness
+  # Pin SSE stream subscribers to a single pod.
+  sessionAffinity: ClientIP
+  ports:
+    - { name: http, port: 8086, targetPort: http }
+---
+# HPA on the cognitive_load custom metric, not CPU.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ecco9-consciousness
+  namespace: ecco9-core
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ecco9-consciousness
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Pods
+      pods:
+        metric: { name: ecco9_cognitive_load }
+        target: { type: AverageValue, averageValue: "0.6" }
