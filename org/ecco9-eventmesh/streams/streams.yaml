@@ -36,3 +36,40 @@ spec:
               ensure_stream ECHO-CORE "echo.thoughts,echo.emotions,echo.resonance" 24h
               ensure_stream ECHO-MEMORY "echo.memories,echo.dreams" 168h
               ensure_stream ECHO-CONTROL "echo.metrics,echo.directives,echo.training" 72h
+
+              # Dead letter queue stream: one durable subject per cognitive
+              # pathway, retained for postmortem replay by ecco9-metacog.
+              ensure_stream ECHO-DLQ \
+                "echo.thoughts.dlq,echo.emotions.dlq,echo.memories.dlq,echo.dreams.dlq,echo.resonance.dlq,echo.training.dlq" \
+                720h
+
+              # Consumer retry policy: at most 5 redeliveries with a linear
+              # backoff between 5s and 5m; undeliverable messages surface in
+              # the $JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES advisories and
+              # are routed to ECHO-DLQ by the metacog DLQ bridge.
+              # Provisioning is idempotent so the Job is safe to re-run.
+              ensure_consumer() {
+                stream="$1"
+                consumer="$2"
+                filter="$3"
+                if nats consumer info "$stream" "$consumer" --server nats:4222 >/dev/null 2>&1; then
+                  nats consumer rm "$stream" "$consumer" --force --server nats:4222
+                fi
+                nats consumer add "$stream" "$consumer" \
+                  --filter "$filter" --ack explicit --max-deliver 5 \
+                  --backoff linear --backoff-steps 5 --backoff-min 5s --backoff-max 5m \
+                  --pull --replay instant \
+                  --defaults --server nats:4222
+              }
+
+              # Canonical durable consumers (one per service role); replay of
+              # ECHO-MEMORY streams seeds dream-cycle and training re-runs.
+              ensure_consumer ECHO-CORE memory-writer echo.thoughts
+              ensure_consumer ECHO-CORE relevance-scorer echo.thoughts
+              ensure_consumer ECHO-CORE emotion-feed echo.emotions
+              ensure_consumer ECHO-CORE resonance-feed echo.resonance
+              ensure_consumer ECHO-MEMORY dream-consolidator echo.memories
+              ensure_consumer ECHO-MEMORY knowledge-distiller echo.dreams
+              ensure_consumer ECHO-CONTROL metrics-collector echo.metrics
+              ensure_consumer ECHO-CONTROL directive-applier echo.directives
+              ensure_consumer ECHO-CONTROL reservoir-trainer echo.training

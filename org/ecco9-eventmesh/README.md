@@ -24,13 +24,26 @@ serialized protobuf with `data_content_type = "application/protobuf"`.
 - `ECHO-CORE`: `echo.thoughts`, `echo.emotions`, `echo.resonance` — limits retention, 24h
 - `ECHO-MEMORY`: `echo.memories`, `echo.dreams` — interest retention, replayable for training
 - `ECHO-CONTROL`: `echo.metrics`, `echo.directives`, `echo.training` — work-queue retention
+- `ECHO-DLQ`: `<topic>.dlq` dead letter subjects — retained 30d for postmortem replay
 
-## Dead letter queues
+## Retry policy and dead letter queues
 
-Every consumer gets a DLQ subject `<topic>.dlq` with max 5 redeliveries.
-DLQ messages are monitored by `ecco9-metacog` as anomaly signals.
+Every canonical consumer (provisioned in `streams/streams.yaml`) uses
+explicit acks with **max 5 deliveries** and a linear backoff (5s → 5m).
+When a message exhausts its deliveries, JetStream emits a
+`$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.<stream>.<consumer>` advisory;
+the `ecco9-metacog` DLQ bridge republishes the offending envelope onto the
+matching `ECHO-DLQ` subject (`<topic>.dlq`) and raises an anomaly signal.
+
+## Event replay
+
+`ECHO-MEMORY` retains events for 7 days, so dream-cycle consolidation and
+reservoir training can be re-run by creating a new durable consumer with
+`--deliver all --replay original`. `ECHO-DLQ` retains for 30 days, allowing
+failed events to be replayed after the consuming service is repaired.
 
 ## Deployment
 
 See `nats/values.yaml` for the Helm values (NATS cluster mode with JetStream,
-3 replicas, persistent volumes).
+3 replicas, persistent volumes). Streams and consumers are provisioned by
+the idempotent Job in `streams/streams.yaml`.

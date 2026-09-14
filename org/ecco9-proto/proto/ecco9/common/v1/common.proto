@@ -37,3 +37,52 @@ message CognitiveMetrics {
   double reservoir_echo_property = 8;
   int32 active_goroutines = 9;
 }
+
+// Canonical machine-readable error codes for every ecco9 gRPC service. These
+// values are stable across minor versions: new codes may be appended, but
+// existing codes are never renumbered or repurposed.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  // The request failed validation before reaching cognitive processing.
+  ERROR_CODE_INVALID_ARGUMENT = 1;
+  // The caller lacks a valid auth token for the requested identity.
+  ERROR_CODE_UNAUTHENTICATED = 2;
+  // The caller is authenticated but not allowed to perform the operation.
+  ERROR_CODE_PERMISSION_DENIED = 3;
+  // The requested memory, identity, or model artifact does not exist.
+  ERROR_CODE_NOT_FOUND = 4;
+  // The request conflicts with current cognitive state (e.g. a dream cycle
+  // already in progress for the same identity).
+  ERROR_CODE_CONFLICT = 5;
+  // A cognitive budget was exceeded: thought queue depth, memory
+  // consolidation backlog, or rate limits.
+  ERROR_CODE_RESOURCE_EXHAUSTED = 6;
+  // The service rejected the request because identity coherence is below
+  // the deployment gate threshold; retry after a resonance cycle.
+  ERROR_CODE_COHERENCE_VIOLATION = 7;
+  // A dependency (reservoir, LLM provider, event mesh) is unavailable.
+  ERROR_CODE_UNAVAILABLE = 8;
+  // The request exceeded its cognitive processing deadline.
+  ERROR_CODE_DEADLINE_EXCEEDED = 9;
+  // Unexpected internal failure.
+  ERROR_CODE_INTERNAL = 10;
+}
+
+// Structured error detail attached to gRPC status responses and logged by
+// every service. Carrying the identity context lets the orchestrator
+// correlate failures with identity coherence deltas.
+message ErrorDetail {
+  ErrorCode code = 1;
+  // Human-readable description; safe to surface to operators.
+  string message = 2;
+  // Originating service name, e.g. "ecco9-reservoir".
+  string service = 3;
+  // Identity whose processing raised the error, when applicable.
+  string identity_id = 4;
+  // Identity coherence at the time of the error, in [0,1].
+  double identity_coherence = 5;
+  // Whether the caller may retry the request unchanged.
+  bool retryable = 6;
+  // Additional structured context (e.g. topic, stream, provider).
+  map<string, string> metadata = 7;
+}
