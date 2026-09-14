@@ -94,12 +94,11 @@ func (g *Gateway) Generate(ctx context.Context, req *GenerateRequest) (*Generate
 		g.mu.RUnlock()
 		return nil, errNoBackends
 	}
-	current := g.current
 	order := providerOrder(g.providers, req.PreferredProvider)
 	g.mu.RUnlock()
 
 	var lastErr error
-	for i, rp := range order {
+	for _, rp := range order {
 		if !rp.available() {
 			continue
 		}
@@ -109,9 +108,11 @@ func (g *Gateway) Generate(ctx context.Context, req *GenerateRequest) (*Generate
 			lastErr = err
 			continue
 		}
-		if i != current {
+		// Track the provider that served this request by registry index so
+		// CurrentProvider reflects the last success regardless of sort order.
+		if idx := indexOf(g.providers, rp); idx != g.current {
 			g.mu.Lock()
-			g.current = indexOf(g.providers, rp)
+			g.current = idx
 			g.mu.Unlock()
 		}
 		return &GenerateResponse{
