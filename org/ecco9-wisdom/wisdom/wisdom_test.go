@@ -126,7 +126,7 @@ func TestAddWisdomAndRetrieve(t *testing.T) {
 	id := e.AddWisdom(WisdomEntry{
 		Content: "Rest consolidates memory", Category: "dream",
 		Applicability: []string{"sleep", "consolidation"},
-		Confidence: 0.8, Usefulness: 0.7, Specificity: 0.5,
+		Confidence:    0.8, Usefulness: 0.7, Specificity: 0.5,
 	})
 	if id == "" {
 		t.Fatal("expected generated wisdom ID")
