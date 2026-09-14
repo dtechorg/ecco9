@@ -4,6 +4,7 @@ package server
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 
 	"github.com/dtechorg/ecco9-reservoir/reservoir"
@@ -69,6 +70,10 @@ func (s *Service) Routes() http.Handler {
 			return
 		}
 		errVal := s.Trainer.TrainSample(req.Input, req.Target)
+		if math.IsNaN(errVal) {
+			http.Error(w, "target dimension does not match trainer output dimension", http.StatusBadRequest)
+			return
+		}
 		samples, lastErr, version := s.Trainer.Stats()
 		writeJSON(w, map[string]any{
 			"prediction_error": errVal,
