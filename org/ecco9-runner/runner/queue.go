@@ -108,14 +108,18 @@ func (q *Queue) process(job *Job) {
 	if id == "" {
 		id = req.Model
 	}
-	m, err := q.reg.Get(id)
-	if err != nil {
-		job.Err <- err
-		return
-	}
-	// First model wins when the request doesn't pin one (gateway parity:
-	// Generate against the default loaded model).
-	if m == nil {
+	var m *LoadedModel
+	if id != "" {
+		// The request pins a specific model; it must be loaded.
+		var err error
+		m, err = q.reg.Get(id)
+		if err != nil {
+			job.Err <- err
+			return
+		}
+	} else {
+		// First model wins when the request doesn't pin one (gateway parity:
+		// Generate against the default loaded model).
 		list := q.reg.List()
 		if len(list) == 0 {
 			job.Err <- ErrModelNotFound
