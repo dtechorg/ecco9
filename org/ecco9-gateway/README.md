@@ -31,6 +31,8 @@ ECCO9_GATEWAY_ADDR=:8080 go run ./cmd/gatewayd
 | `/api/echo/think` | ecco9-reservoir (:8081) |
 | `/api/echo/feel` | ecco9-emotion (:8083) |
 | `/api/echo/remember` | ecco9-memory (:8082) |
+| `/agents`, `/tasks`, `/workflows` | ecco9-orchestrator (:8096), rewritten to `/v1/orchestrator/*` |
+| `/v1/orchestrator/*` | ecco9-orchestrator (:8096) |
 | `/healthz` | local health endpoint |
 
 ## Backend resolution

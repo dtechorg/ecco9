@@ -72,7 +72,16 @@ var Routes = []Route{
 	{"/api/echo/think", SvcReservoir},
 	{"/api/echo/feel", SvcEmotion},
 	{"/api/echo/remember", SvcMemory},
+	// Orchestration surface (prefix-stripped onto /v1/orchestrator/*).
+	{"/agents", SvcOrchestrator},
+	{"/tasks", SvcOrchestrator},
+	{"/workflows", SvcOrchestrator},
+	{"/v1/orchestrator/", SvcOrchestrator},
 }
+
+// orchestratorBase is the orchestrator REST base path; short-form routes
+// (/agents, /tasks, /workflows) are rewritten under it before proxying.
+const orchestratorBase = "/v1/orchestrator"
 
 // serviceOrder is the deterministic fan-out order for the aggregate
 // /api/echo/status handler.
@@ -358,7 +367,23 @@ func (g *Gateway) forward(w http.ResponseWriter, r *http.Request, service string
 		})
 		return
 	}
+	if service == SvcOrchestrator {
+		r = rewriteOrchestratorPath(r)
+	}
 	p.ServeHTTP(w, r)
+}
+
+// rewriteOrchestratorPath maps the short-form external routes onto the
+// orchestrator's /v1/orchestrator/* REST base path.
+func rewriteOrchestratorPath(r *http.Request) *http.Request {
+	if strings.HasPrefix(r.URL.Path, orchestratorBase+"/") {
+		return r
+	}
+	r2 := r.Clone(r.Context())
+	r2.URL = new(url.URL)
+	*r2.URL = *r.URL
+	r2.URL.Path = orchestratorBase + r.URL.Path
+	return r2
 }
 
 func (g *Gateway) handleHealthz(w http.ResponseWriter, r *http.Request) {
