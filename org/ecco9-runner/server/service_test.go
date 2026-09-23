@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -120,6 +121,38 @@ func TestGenerateStreamsTokens(t *testing.T) {
 	}
 	if lines == 0 || !sawDone {
 		t.Fatalf("expected streamed tokens ending in done, got %d lines: %q", lines, rec.Body.String())
+	}
+}
+
+// TestGenerateStreamsAcrossInstances reproduces the drain race that dropped
+// the terminal done:true token when several services ran in one process: the
+// generate handler used to exit its select loop as soon as both job channels
+// closed, abandoning any tokens still buffered in Results.
+func TestGenerateStreamsAcrossInstances(t *testing.T) {
+	for i := 0; i < 8; i++ {
+		s := newTestService()
+		loadModel(t, s, fmt.Sprintf("/models/gen-%d.gguf", i))
+		body := `{"request_id":"g","messages":[{"role":"user","content":"hello echo"}]}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/runner/generate", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		s.Routes().ServeHTTP(rec, req)
+
+		lines := 0
+		var sawDone bool
+		sc := bufio.NewScanner(rec.Body)
+		for sc.Scan() {
+			txt := strings.TrimSpace(sc.Text())
+			if txt == "" {
+				continue
+			}
+			lines++
+			if strings.Contains(txt, `"done":true`) {
+				sawDone = true
+			}
+		}
+		if lines == 0 || !sawDone {
+			t.Fatalf("instance %d: expected stream ending in done, got %d lines", i, lines)
+		}
 	}
 }
 
