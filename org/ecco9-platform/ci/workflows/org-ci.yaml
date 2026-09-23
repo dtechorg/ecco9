@@ -1,0 +1,87 @@
+# ecco9 Org CI — applies the per-repo pipeline template's CI stages
+# (lint → vet → test → build → contract tests) across every org/ecco9-*
+# Go module. In extracted repos this matrix runs with a single entry; in
+# the monorepo mirror (org/ subtree) it fans out over all service modules.
+#
+# Archetype classification follows pipeline-template.yaml:
+#   - proto / platform / eventmesh have no Go module → skipped here
+#     (proto is validated by `buf lint`/`buf breaking`, infra by helm/tf lint)
+#   - every other org repo is a Go module validated with gofmt/vet/test/build.
+
+name: org-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'org/**'
+  pull_request:
+    paths:
+      - 'org/**'
+
+jobs:
+  modules:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.discover.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: discover
+        run: |
+          modules=$(find org -mindepth 2 -maxdepth 2 -name go.mod \
+            | xargs -n1 dirname | sort | jq -R . | jq -cs .)
+          echo "matrix=$modules" >> "$GITHUB_OUTPUT"
+
+  lint:
+    needs: modules
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.modules.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          [ -z "$unformatted" ] || (echo "$unformatted" && exit 1)
+      - name: go vet
+        run: go vet ./...
+
+  test:
+    needs: modules
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.modules.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: go test (race + coverage)
+        run: go test -race -count=1 -coverprofile=coverage.out ./...
+      - name: coverage report
+        run: go tool cover -func=coverage.out | tail -1
+
+  contract-tests:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: cross-repo contract tests
+        working-directory: org/ecco9-platform/ci/integration
+        run: go test -tags=integration -run 'Contract' ./...
