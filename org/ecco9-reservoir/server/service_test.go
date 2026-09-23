@@ -1,6 +1,8 @@
 package server
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -74,4 +76,76 @@ func TestPersonaEndpoint(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), `"applied":2`) {
 		t.Fatalf("expected applied:2, got %s", rec.Body.String())
 	}
+}
+
+func TestCheckpointValidateReloadFlow(t *testing.T) {
+	s := newTestService() // outDim = 2
+	// Train a few samples so there is something to checkpoint.
+	for _, body := range []string{
+		`{"input":[0.1,0.2],"target":[0.1,0.2]}`,
+		`{"input":[0.3,0.4],"target":[0.3,0.4]}`,
+		`{"input":[0.5,0.6],"target":[0.5,0.6]}`,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/v1/reservoir/train", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		s.Routes().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("train = %d, want 200; body=%q", rec.Code, rec.Body.String())
+		}
+	}
+
+	// Capture a checkpoint.
+	req := httptest.NewRequest(http.MethodPost, "/v1/reservoir/checkpoints", nil)
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("checkpoints = %d, want 200; body=%q", rec.Code, rec.Body.String())
+	}
+	var cpResp struct {
+		Version  uint64 `json:"version"`
+		Deployed uint64 `json:"deployed"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&cpResp); err != nil {
+		t.Fatalf("decode checkpoint: %v", err)
+	}
+	if cpResp.Version == 0 || cpResp.Deployed != cpResp.Version {
+		t.Fatalf("first checkpoint should be deployed baseline: %+v", cpResp)
+	}
+
+	// Validate it against held-out samples.
+	valBody := `{"version":` + itoa(cpResp.Version) + `,"held_out":[{"input":[0.2,0.3],"target":[0.2,0.3]}]}`
+	req = httptest.NewRequest(http.MethodPost, "/v1/reservoir/checkpoints/validate", strings.NewReader(valBody))
+	rec = httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("validate = %d, want 200; body=%q", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"held_out_mse"`) {
+		t.Fatalf("validate missing held_out_mse: %s", rec.Body.String())
+	}
+
+	// Hot reload it.
+	req = httptest.NewRequest(http.MethodPost, "/v1/reservoir/checkpoints/reload", strings.NewReader(`{"version":`+itoa(cpResp.Version)+`}`))
+	rec = httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("reload = %d, want 200; body=%q", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"reloaded":true`) {
+		t.Fatalf("expected reloaded:true, got %s", rec.Body.String())
+	}
+}
+
+func TestValidateUnknownCheckpoint(t *testing.T) {
+	s := newTestService()
+	req := httptest.NewRequest(http.MethodPost, "/v1/reservoir/checkpoints/validate", strings.NewReader(`{"version":999,"held_out":[]}`))
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("validate unknown = %d, want 404", rec.Code)
+	}
+}
+
+func itoa(v uint64) string {
+	return strings.TrimSpace(fmt.Sprintf("%d", v))
 }

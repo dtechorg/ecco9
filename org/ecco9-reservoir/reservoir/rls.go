@@ -129,6 +129,55 @@ func (t *OnlineTrainer) Stats() (samples uint64, lastError float64, version uint
 	return t.samplesTrained, t.lastError, t.version
 }
 
+// Snapshot returns a deep copy of the readout weights plus the training
+// statistics for versioning as a checkpoint.
+func (t *OnlineTrainer) Snapshot() (weights [][]float64, samples uint64, lastError float64, version uint64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	w := make([][]float64, len(t.w))
+	for i := range t.w {
+		w[i] = make([]float64, len(t.w[i]))
+		copy(w[i], t.w[i])
+	}
+	return w, t.samplesTrained, t.lastError, t.version
+}
+
+// LoadWeights hot-replaces the readout weights from a versioned checkpoint
+// without interrupting inference (pipeline step 5: hot reload). The
+// trainer version is preserved so checkpoint lineage stays monotonic.
+func (t *OnlineTrainer) LoadWeights(weights [][]float64, samples uint64, lastError float64, version uint64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	w := make([][]float64, len(weights))
+	for i := range weights {
+		w[i] = make([]float64, len(weights[i]))
+		copy(w[i], weights[i])
+	}
+	t.w = w
+	t.samplesTrained = samples
+	t.lastError = lastError
+	if version > t.version {
+		t.version = version
+	}
+}
+
+// PredictWith runs the given readout weights against the reservoir state
+// reached for input. Used to score candidate checkpoints against held-out
+// samples without mutating the deployed weights.
+func (t *OnlineTrainer) PredictWith(weights [][]float64, input []float64) []float64 {
+	state := t.reservoir.Update(input)
+	phi := make([]float64, t.stateDim+1)
+	copy(phi, state)
+	phi[t.stateDim] = 1.0
+
+	outDim := len(weights)
+	out := make([]float64, outDim)
+	for o := 0; o < outDim; o++ {
+		out[o] = dot(weights[o], phi)
+	}
+	return out
+}
+
 func dot(a, b []float64) float64 {
 	var s float64
 	for i := range a {
