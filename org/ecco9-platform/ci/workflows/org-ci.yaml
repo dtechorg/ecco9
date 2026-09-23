@@ -19,6 +19,9 @@ on:
     paths:
       - 'org/**'
 
+permissions:
+  contents: read
+
 jobs:
   modules:
     runs-on: ubuntu-latest
