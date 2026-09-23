@@ -1,0 +1,235 @@
+# Production topology generator inputs (issue #8, 7.1).
+#
+# Each entry renders one cognitive service from the shared
+# ../helm/ecco9-service library chart into its 7.1 namespace with the
+# replica range (HPA bounds), resource envelope, and tier placement from
+# the production layout table. kustomization.yaml includes this file via
+# its `helmCharts:` list (see the `replacements` note there); keeping the
+# entries in a standalone YAML document lets topology_test.go validate the
+# 7.1 table without invoking kustomize/helm.
+#
+# Fields per entry:
+#   name/namespace   — service and target namespace from the 7.1 table
+#   releaseName      — Helm release (= service name)
+#   version          — pinned library chart version
+#   valuesInline     — replica floor, HPA bounds, resources, placement
+#
+# hpa.minReplicas/maxReplicas encode the issue's "Replicas" column
+# (2-4, 2-3, 2-8, 1-2, 3+); resources encode the "Resources" column.
+
+- name: ecco9-service
+  releaseName: ecco9-reservoir
+  namespace: ecco9-core
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-reservoir
+    namespace: ecco9-core
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 4, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 1, memory: 2Gi }
+      limits: { cpu: 2, memory: 4Gi }
+    placement:
+      # Temporal core: high-memory-bandwidth nodes, co-located with the
+      # LLM gateway for minimal inference pipeline latency (issue #8,
+      # design decision 2; mirrors org/ecco9-reservoir/deploy/statefulset.yaml).
+      nodeSelector: { ecco9.io/tier: memory-bandwidth }
+      coLocateWith: ecco9-llm-gateway
+
+- name: ecco9-service
+  releaseName: ecco9-echobeats
+  namespace: ecco9-core
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-echobeats
+    namespace: ecco9-core
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 4, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 1, memory: 2Gi }
+      limits: { cpu: 2, memory: 4Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-emotion
+  namespace: ecco9-core
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-emotion
+    namespace: ecco9-core
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 4, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 1, memory: 2Gi }
+      limits: { cpu: 2, memory: 4Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-consciousness
+  namespace: ecco9-core
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-consciousness
+    namespace: ecco9-core
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 4, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 1, memory: 2Gi }
+      limits: { cpu: 2, memory: 4Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-memory
+  namespace: ecco9-memory
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-memory
+    namespace: ecco9-memory
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 3, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 2, memory: 4Gi }
+      limits: { cpu: 4, memory: 8Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-atomspace
+  namespace: ecco9-memory
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-atomspace
+    namespace: ecco9-memory
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 3, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 2, memory: 4Gi }
+      limits: { cpu: 4, memory: 8Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-identity
+  namespace: ecco9-memory
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-identity
+    namespace: ecco9-memory
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 3, cognitiveLoadTarget: "0.5" }
+    resources:
+      requests: { cpu: 2, memory: 4Gi }
+      limits: { cpu: 4, memory: 8Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-llm-gateway
+  namespace: ecco9-inference
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-llm-gateway
+    namespace: ecco9-inference
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 8, cognitiveLoadTarget: "0.7" }
+    resources:
+      requests: { cpu: 2, memory: 4Gi }
+      limits: { cpu: 4, memory: 8Gi }
+    placement:
+      # Co-located with the reservoir (temporal core).
+      coLocateWith: ecco9-reservoir
+
+- name: ecco9-service
+  releaseName: ecco9-runner
+  namespace: ecco9-inference
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-runner
+    namespace: ecco9-inference
+    replicas: 2
+    hpa: { minReplicas: 2, maxReplicas: 8, cognitiveLoadTarget: "0.75" }
+    # GPU nodes (7.1): requests nvidia GPUs and tolerates the gpu-pool
+    # taint, mirroring org/ecco9-runner/deploy/deployment.yaml.
+    resources:
+      requests: { cpu: 2, memory: 8Gi, nvidia.com/gpu: 1 }
+      limits: { cpu: 8, memory: 32Gi, nvidia.com/gpu: 1 }
+    placement:
+      nodeSelector: { ecco9.io/tier: inference }
+      tolerations:
+        - { key: ecco9.io/gpu, operator: Equal, value: "true", effect: NoSchedule }
+        - { key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }
+
+- name: ecco9-service
+  releaseName: ecco9-wisdom
+  namespace: ecco9-higher
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-wisdom
+    namespace: ecco9-higher
+    replicas: 1
+    hpa: { minReplicas: 1, maxReplicas: 2, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: 1, memory: 2Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-metacog
+  namespace: ecco9-higher
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-metacog
+    namespace: ecco9-higher
+    replicas: 1
+    hpa: { minReplicas: 1, maxReplicas: 2, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: 1, memory: 2Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-echodream
+  namespace: ecco9-higher
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-echodream
+    namespace: ecco9-higher
+    replicas: 1
+    hpa: { minReplicas: 1, maxReplicas: 2, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: 1, memory: 2Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-ontogenesis
+  namespace: ecco9-higher
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-ontogenesis
+    namespace: ecco9-higher
+    replicas: 1
+    hpa: { minReplicas: 1, maxReplicas: 2, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: 1, memory: 2Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-gateway
+  namespace: ecco9-platform
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-gateway
+    namespace: ecco9-platform
+    replicas: 3
+    hpa: { minReplicas: 3, maxReplicas: 8, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 1, memory: 2Gi }
+      limits: { cpu: 2, memory: 4Gi }
+
+- name: ecco9-service
+  releaseName: ecco9-orchestrator
+  namespace: ecco9-platform
+  version: 1.0.0
+  valuesInline:
+    name: ecco9-orchestrator
+    namespace: ecco9-platform
+    # Leader-elected active-passive pair + read replicas (3+ per 7.1).
+    replicas: 3
+    hpa: { minReplicas: 3, maxReplicas: 6, cognitiveLoadTarget: "0.6" }
+    resources:
+      requests: { cpu: 1, memory: 2Gi }
+      limits: { cpu: 2, memory: 4Gi }
+
+# ecco9-data (PostgreSQL, Redis, NATS) is managed/HA per 7.1 and is not
+# rendered from the service library chart; NATS JetStream topology lives in
+# org/ecco9-eventmesh, and multi-region data-plane replication lives in
+# multiregion/.

@@ -9,6 +9,10 @@ Platform deployment foundation for the ecco9 distributed cognitive architecture.
 - `servicemesh/` — Istio configuration: mTLS, traffic management, canary routing
 - `observability/` — Prometheus, Grafana, Tempo, Loki stack plus cognitive dashboards
 - `secrets/` — External Secrets Operator integration with Vault/SOPS
+- `deploy/` — Phase 7 deployment topology at scale: the production Kubernetes
+  layout (7.1) as Kustomize/Helm generator bases, and the multi-region
+  strategy (7.2): NATS supercluster, CRDT reservoir state replication, model
+  artifact CDN replication, and orchestrator federation
 - `ci/` — CI/CD pipeline architecture (Phase 6): per-repo pipeline template,
   cross-repo integration tests (contract, chaos, echo coherence), and the
   monorepo → multi-repo migration strategy
@@ -23,6 +27,10 @@ Platform deployment foundation for the ecco9 distributed cognitive architecture.
 | `ecco9-higher` | wisdom, metacog, echodream, ontogenesis |
 | `ecco9-platform` | gateway, orchestrator |
 | `ecco9-data` | PostgreSQL, Redis, NATS |
+
+The production scale, placement, and resource envelope for each service in
+these namespaces is defined in `deploy/` (Phase 7), rendered from the shared
+Helm library and validated by `deploy/topology_test.go`.
 
 ## Identity coherence gate
 

@@ -1,0 +1,86 @@
+# Multi-region reservoir state replication (issue #8, 7.2): CRDT-based state
+# merging with eventual consistency.
+#
+# Reservoirs keep regional state authoritative (a region's temporal dynamics
+# must not block on WAN round trips). Cross-region convergence is achieved
+# by replicating reservoir *echoes* over the NATS supercluster and merging
+# them into each region's state with CRDT semantics, so merges are
+# associative, commutative, and idempotent — safe under duplication,
+# reordering, and partition.
+#
+# This manifest deploys the reservoir state replicator as a sidecar
+# Deployment adjacent to the regional reservoir StatefulSet
+# (org/ecco9-reservoir/deploy/statefulset.yaml). It subscribes to remote
+# echo.resonance frames and applies them to the local reservoir via the
+# reservoir's merge endpoint; local echoes are published outbound with
+# vector-clock metadata.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecco9-reservoir-replicator
+  namespace: ecco9-core
+  labels:
+    app.kubernetes.io/name: ecco9-reservoir-replicator
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: core
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecco9-reservoir-replicator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecco9-reservoir-replicator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: replicator
+          image: ghcr.io/dtechorg/ecco9-reservoir:latest
+          args: ["replicate", "--crdt"]
+          ports:
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - name: ECCO9_NATS_URL
+              value: nats://nats.ecco9-data:4222
+            - name: ECCO9_RESERVOIR_ADDR
+              value: ecco9-reservoir.ecco9-core:8081
+            - name: ECCO9_REGION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['topology.kubernetes.io/region']
+            # CRDT merge tuning.
+            - name: ECCO9_CRDT_MERGE_INTERVAL
+              value: 5s
+            - name: ECCO9_CRDT_MAX_CLOCK_SKEW
+              value: 30s
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: 1, memory: 1Gi }
+---
+# Merge policy: last-writer-wins registers for scalar reservoir parameters,
+# grow-only counters for training updates, and observed-remove sets for
+# membrane memberships. Convergence is verified by the
+# ecco9_reservoir_state_divergence metric (histogram of cross-region state
+# distance); alert if p95 exceeds the echo-property bound.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecco9-reservoir-crdt-policy
+  namespace: ecco9-core
+  labels:
+    app.kubernetes.io/part-of: ecco9
+data:
+  policy.yaml: |
+    merge:
+      scalar_params: lww-register
+      training_updates: g-counter
+      membrane_membership: or-set
+      state_snapshots: lww-register
+    consistency: eventual
+    convergence:
+      metric: ecco9_reservoir_state_divergence
+      alert_quantile: "0.95"
+      bound: echo-property
