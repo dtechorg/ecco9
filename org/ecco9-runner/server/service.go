@@ -106,7 +106,12 @@ func (s *Service) Routes() http.Handler {
 
 		flusher, _ := w.(http.Flusher)
 		w.Header().Set("Content-Type", "application/x-ndjson")
-		for job.Results != nil && job.Err != nil {
+		// Drain until both channels close. process sends every token
+		// (including the terminal done:true) before its deferred closes, so
+		// a closed Err must not end the loop while Results still holds
+		// buffered tokens — otherwise the final done frame is lost.
+		var jobErr error
+		for job.Results != nil {
 			select {
 			case resp, ok := <-job.Results:
 				if !ok {
@@ -117,12 +122,20 @@ func (s *Service) Routes() http.Handler {
 				if flusher != nil {
 					flusher.Flush()
 				}
-			case err := <-job.Err:
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+			case err, ok := <-job.Err:
+				if !ok {
+					// Err closed: keep draining any buffered Results.
+					job.Err = nil
+					continue
 				}
-				job.Err = nil
+				if err != nil {
+					jobErr = err
+					job.Err = nil
+				}
 			}
+		}
+		if jobErr != nil {
+			http.Error(w, jobErr.Error(), http.StatusInternalServerError)
 		}
 	})
 
