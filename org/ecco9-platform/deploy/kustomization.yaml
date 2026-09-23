@@ -1,0 +1,25 @@
+# Kustomize base for the single-region production layout (issue #8, 7.1).
+#
+#   kustomize build --enable-helm org/ecco9-platform/deploy
+#
+# `helmCharts` consumes topology.yaml, the generated list of per-service
+# HelmChartInflationGenerator entries. Kustomize does not natively include
+# external files in `helmCharts`, so deploy tooling concatenates
+# topology.yaml's entries under the `helmCharts:` key below at render time
+# (see ../ci/pipeline-template.yaml deploy stage); the standalone file keeps
+# the 7.1 layout machine-validatable via topology_test.go without a cluster.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespaces/namespaces.yaml
+
+# Common labels applied to every rendered workload.
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: ecco9
+      ecco9.io/phase: "7"
+    includeSelectors: false
+
+# helmCharts: entries are generated from topology.yaml (see header note).
+helmCharts: []

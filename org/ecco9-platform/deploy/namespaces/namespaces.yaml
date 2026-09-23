@@ -1,0 +1,58 @@
+# Production namespaces for the ecco9 cognitive architecture (issue #8, 7.1).
+# Labels drive tier-aware placement (node affinity), mesh policy, and
+# observability grouping.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecco9-core
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: core
+    ecco9.io/istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecco9-memory
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: memory
+    ecco9.io/istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecco9-inference
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: inference
+    ecco9.io/istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecco9-higher
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: higher-order
+    ecco9.io/istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecco9-platform
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: platform
+    ecco9.io/istio-injection: enabled
+---
+# Data plane (PostgreSQL, Redis, NATS) is managed/HA; no sidecar injection —
+# mesh membership is limited to cognitive workloads.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ecco9-data
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/tier: data
+    ecco9.io/istio-injection: disabled

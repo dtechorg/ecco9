@@ -1,0 +1,62 @@
+# Multi-region identity coherence: NATS supercluster overlay (issue #8, 7.2).
+#
+# Each region runs the org/ecco9-eventmesh NATS cluster (JetStream, 3
+# replicas). Regions are joined into a supercluster via gateway connections
+# so that identity-bearing subjects (echo.thoughts, echo.emotions,
+# echo.memories, echo.dreams, echo.resonance) replicate across regions and
+# identity coherence is maintained globally.
+#
+# This file is a per-region values overlay for the eventmesh NATS chart
+# (org/ecco9-eventmesh/nats/values.yaml): it names the region and lists the
+# remote gateway endpoints. One overlay per region; the example below wires
+# region-a to regions b and c.
+#
+# JetStream streams are created per-region (stream data does not cross
+# gateways); cross-region flow uses gateway-routed core NATS subjects that
+# each region's provisioning Job (eventmesh/streams/streams.yaml) mirrors
+# into its local JetStream streams.
+
+# Region identity — must match the gateway name in the base values.
+region: region-a
+
+config:
+  cluster:
+    enabled: true
+    replicas: 3
+  jetstream:
+    enabled: true
+  gateway:
+    enabled: true
+    merge:
+      name: ecco9-region-a
+      # Remote region gateways. In production these are supplied per
+      # environment (ExternalName services or load-balanced endpoints).
+      gateways:
+        - name: ecco9-region-b
+          urls:
+            - nats://nats-gateway.ecco9-data.region-b:7222
+        - name: ecco9-region-c
+          urls:
+            - nats://nats-gateway.ecco9-data.region-c:7222
+
+# Subjects replicated across the supercluster for identity coherence.
+# Gateway interest is constrained to identity-bearing cognitive pathways so
+# regional traffic stays local unless it carries identity state.
+gatewayInterest:
+  - echo.thoughts
+  - echo.emotions
+  - echo.memories
+  - echo.dreams
+  - echo.resonance
+  - echo.metrics   # global cognitive-load + coherence telemetry
+  # echo.training and echo.directives stay regional: training samples are
+  # latency-sensitive and directives are issued by the regional orchestrator.
+
+# Cross-region identity coherence SLO. The identity service consumes
+# replicated echoes and publishes ecco9_identity_coherence per region; the
+# global orchestrator watches the min across regions.
+identityCoherence:
+  metric: ecco9_identity_coherence
+  threshold: 0.7
+  # If global min coherence drops below threshold, the global orchestrator
+  # freezes cross-region identity writes until regions re-converge.

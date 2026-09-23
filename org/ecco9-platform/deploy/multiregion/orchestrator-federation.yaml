@@ -1,0 +1,113 @@
+# Multi-region orchestrator federation (issue #8, 7.2): a global orchestrator
+# federated with regional orchestrators for latency-sensitive decisions.
+#
+# Decision split:
+#   - Regional orchestrators make latency-sensitive decisions: cognitive-load
+#     scaling, rollout rollback, reservoir placement, dream-cycle scheduling.
+#   - The global orchestrator arbitrates cross-region policy only: traffic
+#     weights, model promotion, coherence-threshold policy, and region
+#     evacuation. It never sits on the request path.
+#
+# The global orchestrator discovers regional orchestrators through the
+# federation ConfigMap below and subscribes to their echo.metrics /
+# echo.directives summaries over the NATS supercluster.
+
+# Federation registry: one entry per region. Regional orchestrators report
+# in over the supercluster; the global orchestrator watches this registry.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecco9-orchestrator-federation
+  namespace: ecco9-platform
+  labels:
+    app.kubernetes.io/part-of: ecco9
+    ecco9.io/federation: global
+data:
+  federation.yaml: |
+    global:
+      # Global orchestrator: cross-region policy only, never request-path.
+      service: ecco9-orchestrator-global.ecco9-platform:50051
+      scope:
+        - traffic-weights
+        - model-promotion
+        - coherence-threshold-policy
+        - region-evacuation
+    regions:
+      - name: region-a
+        orchestrator: ecco9-orchestrator.ecco9-platform.region-a:50051
+        # Latency-sensitive decisions stay regional.
+        scope:
+          - cognitive-load-scaling
+          - rollout-rollback
+          - reservoir-placement
+          - dream-cycle-scheduling
+      - name: region-b
+        orchestrator: ecco9-orchestrator.ecco9-platform.region-b:50051
+        scope:
+          - cognitive-load-scaling
+          - rollout-rollback
+          - reservoir-placement
+          - dream-cycle-scheduling
+---
+# Global orchestrator deployment: a single logical instance (leader-elected
+# across regions, active-passive) that federates the regional orchestrators.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecco9-orchestrator-global
+  namespace: ecco9-platform
+  labels:
+    app.kubernetes.io/name: ecco9-orchestrator-global
+    app.kubernetes.io/part-of: ecco9
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ecco9-orchestrator-global
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ecco9-orchestrator-global
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: orchestrator
+          image: ghcr.io/dtechorg/ecco9-orchestrator:latest
+          args: ["--leader-elect", "--federation-config=/etc/ecco9/federation.yaml", "--scope=global"]
+          ports:
+            - { name: grpc, containerPort: 50051 }
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - name: ECCO9_NATS_URL
+              value: nats://nats.ecco9-data:4222
+            - name: ECCO9_ORCHESTRATOR_SCOPE
+              value: global
+          volumeMounts:
+            - name: federation
+              mountPath: /etc/ecco9
+              readOnly: true
+          resources:
+            requests: { cpu: 500m, memory: 1Gi }
+            limits: { cpu: 2, memory: 4Gi }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8096 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8096 }
+      volumes:
+        - name: federation
+          configMap:
+            name: ecco9-orchestrator-federation
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecco9-orchestrator-global
+  namespace: ecco9-platform
+spec:
+  selector:
+    app.kubernetes.io/name: ecco9-orchestrator-global
+  ports:
+    - { name: grpc, port: 50051 }
+    - { name: http, port: 8096 }

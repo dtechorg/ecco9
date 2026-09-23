@@ -1,0 +1,81 @@
+# Multi-region model artifact replication (issue #8, 7.2): CDN / object
+# storage with regional caching.
+#
+# Model artifacts (GGUF weights, adapters, templates) are pushed once to the
+# origin object store and replicated to regional buckets behind a CDN. Each
+# region's ecco9-models StatefulSet (org/ecco9-models/deploy/statefulset.yaml)
+# resolves pulls against its regional cache, falling back to the CDN and
+# then the origin. Replication is content-addressed, so regional stores are
+# warm standbys rather than divergent copies.
+
+# Origin bucket + replication rules to regional buckets (GCS multi-region
+# origin shown; the same shape maps to S3 Cross-Region Replication).
+apiVersion: storage.cnrm.cloud.google.com/v1beta1
+kind: StorageBucket
+metadata:
+  name: ecco9-model-artifacts-origin
+  namespace: ecco9-data
+  labels:
+    app.kubernetes.io/part-of: ecco9
+spec:
+  location: us
+  uniformBucketLevelAccess: true
+  versioning: true
+---
+# Regional cache warmers: a small per-region CronJob that pre-pulls the
+# active model set into the regional ecco9-models store so cold starts
+# never hit the origin across the WAN.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ecco9-model-cache-warmer
+  namespace: ecco9-inference
+  labels:
+    app.kubernetes.io/name: ecco9-model-cache-warmer
+    app.kubernetes.io/part-of: ecco9
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: warmer
+              image: ghcr.io/dtechorg/ecco9-models:latest
+              args: ["cache-warm", "--active-set"]
+              env:
+                - name: ECCO9_MODELS_URL
+                  value: http://ecco9-models.ecco9-inference:8095
+                # Regional CDN edge for artifact pulls; per-environment
+                # overlays rewrite this to the region's edge hostname.
+                - name: ECCO9_MODEL_CDN_BASE
+                  value: https://models.cdn.ecco9.io
+                - name: ECCO9_MODEL_ORIGIN_BUCKET
+                  value: gs://ecco9-model-artifacts-origin
+              resources:
+                requests: { cpu: 100m, memory: 256Mi }
+                limits: { cpu: 500m, memory: 512Mi }
+---
+# CDN behavior policy: cache-by-content-hash, long TTL for immutable
+# artifacts, short TTL for mutable tags (latest, channel pins).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ecco9-model-cdn-policy
+  namespace: ecco9-data
+  labels:
+    app.kubernetes.io/part-of: ecco9
+data:
+  policy.yaml: |
+    cache:
+      immutable_artifacts:
+        pattern: "/blobs/sha256/*"
+        ttl: 31536000s   # 1y, content-addressed
+      mutable_tags:
+        pattern: "/refs/*"
+        ttl: 60s
+    fallback:
+      order: [regional-cache, cdn-edge, origin]
+      origin: gs://ecco9-model-artifacts-origin
