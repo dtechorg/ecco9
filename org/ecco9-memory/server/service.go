@@ -5,8 +5,10 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/dtechorg/ecco9-memory/memory"
+	"github.com/dtechorg/ecco9-sdk-go/eventmesh"
 	"github.com/dtechorg/ecco9-sdk-go/health"
 )
 
@@ -16,6 +18,10 @@ type Service struct {
 	Weaver *memory.MemoryWeaver
 	Store  *memory.PersistentStore
 	Health *health.Reporter
+
+	// publisher emits episodic memories to the echo.memories topic
+	// (pipeline step 1: collection). Nil in the offline sandbox.
+	publisher eventmesh.Publisher
 }
 
 // New constructs the service and restores any persisted snapshot.
@@ -32,6 +38,27 @@ func New(stateDir string) *Service {
 		Store:  store,
 		Health: health.NewReporter(),
 	}
+}
+
+// SetPublisher attaches an event mesh publisher so newly stored episodic
+// memories are published to echo.memories for relevance filtering and
+// reservoir training (pipeline step 1: collection).
+func (s *Service) SetPublisher(p eventmesh.Publisher) { s.publisher = p }
+
+// publishEpisode emits a stored episode node to the echo.memories topic.
+// Publishing is best-effort: a mesh outage must not block memory storage.
+func (s *Service) publishEpisode(node *memory.MemoryNode) {
+	if s.publisher == nil || node.Type != memory.NodeEpisode {
+		return
+	}
+	data, err := json.Marshal(node)
+	if err != nil {
+		return
+	}
+	env := eventmesh.New("ecco9-memory", "ecco9.memory.episode", node.ID, data)
+	env.DataContentType = "application/json"
+	env.Time = time.Now().UTC()
+	_ = s.publisher.Publish(eventmesh.TopicMemories, env)
 }
 
 // Routes exposes the REST adapter for ecco9.memory.v1.MemoryService.
@@ -56,6 +83,7 @@ func (s *Service) Routes() http.Handler {
 			return
 		}
 		_ = s.Store.Save(s.Graph)
+		s.publishEpisode(req.Node)
 		writeJSON(w, map[string]any{"id": id})
 	})
 
