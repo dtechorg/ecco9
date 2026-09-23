@@ -116,3 +116,32 @@ func TestMetricsLoadAndDirectivesEndpoints(t *testing.T) {
 		}
 	}
 }
+
+func TestTopologyEndpoint(t *testing.T) {
+	s := New()
+	req := httptest.NewRequest(http.MethodGet, "/v1/orchestrator/topology", nil)
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("topology = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"ecco9-reservoir", "ecco9-metacog", "feedforward", "feedback", "recurrent", "modulatory"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("topology missing %q: %s", want, body)
+		}
+	}
+}
+
+func TestDirectivesIncludeEchoDreamConsolidation(t *testing.T) {
+	s := New()
+	req := httptest.NewRequest(http.MethodGet, "/v1/orchestrator/directives", nil)
+	rec := httptest.NewRecorder()
+	s.Routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("directives = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "ecco9-echodream") {
+		t.Fatalf("directives missing echodream consolidation: %s", rec.Body.String())
+	}
+}

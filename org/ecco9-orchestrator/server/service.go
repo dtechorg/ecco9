@@ -95,6 +95,15 @@ func (s *Service) Routes() http.Handler {
 		writeJSON(w, map[string]any{"directives": s.Ctrl.Directives()})
 	})
 
+	// Network topology as neural architecture (5.1/5.2): the service-mesh
+	// layers and the four canonical event-flow patterns.
+	mux.HandleFunc("/v1/orchestrator/topology", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, map[string]any{
+			"nodes":         orchestrator.Topology,
+			"flow_patterns": orchestrator.FlowPatterns,
+		})
+	})
+
 	return mux
 }
 

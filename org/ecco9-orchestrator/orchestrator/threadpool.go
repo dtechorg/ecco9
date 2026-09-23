@@ -97,6 +97,14 @@ func (h *HomeostaticController) Directives() []contracts.ThreadPoolDirective {
 		TargetWorkers: int32(runnerWorkers),
 		Reason:        "inference parallelism",
 	}
+	// EchoDream memory consolidation frequency (via EchoDream schedule):
+	// higher load → more frequent consolidation to drain the backlog.
+	h.targets["ecco9-echodream"] = contracts.ThreadPoolDirective{
+		ServiceName:      "ecco9-echodream",
+		TargetWorkers:    int32(scaleInt(load, 1, 4)),
+		CycleFrequencyHz: 0.1 + 0.4*load, // 0.1Hz at rest → 0.5Hz under load
+		Reason:           "memory consolidation frequency",
+	}
 	return h.snapshotLocked()
 }
 

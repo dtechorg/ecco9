@@ -59,7 +59,7 @@ func TestGlobalLoadFoldsReportedMetrics(t *testing.T) {
 func TestDirectivesCoverLoadBearingServices(t *testing.T) {
 	h := NewHomeostaticController()
 	ds := directivesByService(h.Directives())
-	for _, svc := range []string{"ecco9-reservoir", "ecco9-echobeats", "ecco9-runner"} {
+	for _, svc := range []string{"ecco9-reservoir", "ecco9-echobeats", "ecco9-runner", "ecco9-echodream"} {
 		if _, ok := ds[svc]; !ok {
 			t.Fatalf("missing directive for %s: %v", svc, ds)
 		}
@@ -92,6 +92,26 @@ func TestDirectivesSaturatedSystemUsesUpperBounds(t *testing.T) {
 	}
 	if w := ds["ecco9-runner"].TargetWorkers; w != 16 {
 		t.Fatalf("hot runner workers = %d, want upper bound 16", w)
+	}
+}
+
+func TestEchoDreamConsolidationFrequencyScalesWithLoad(t *testing.T) {
+	// Idle: low consolidation cadence.
+	idle := NewHomeostaticController()
+	idleHz := directivesByService(idle.Directives())["ecco9-echodream"].CycleFrequencyHz
+	if idleHz != 0.1 {
+		t.Fatalf("idle echodream consolidation = %v, want 0.1Hz", idleHz)
+	}
+
+	// Saturated: higher consolidation cadence to drain the memory backlog.
+	hot := NewHomeostaticController()
+	hot.ReportMetrics(saturatingMetrics())
+	hotHz := directivesByService(hot.Directives())["ecco9-echodream"].CycleFrequencyHz
+	if hotHz != 0.5 {
+		t.Fatalf("hot echodream consolidation = %v, want 0.5Hz", hotHz)
+	}
+	if hotHz <= idleHz {
+		t.Fatalf("consolidation frequency should rise with load: idle=%v hot=%v", idleHz, hotHz)
 	}
 }
 
