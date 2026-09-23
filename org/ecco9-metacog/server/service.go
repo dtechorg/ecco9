@@ -160,6 +160,28 @@ func (s *Service) Routes() http.Handler {
 		writeJSON(w, s.Monitor.Status())
 	})
 
+	// Training quality validation (pipeline step 4): evaluate a reservoir
+	// checkpoint's held-out prediction error and record the outcome.
+	mux.HandleFunc("POST /v1/metacog/training_validation", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			CheckpointVersion uint64  `json:"checkpoint_version"`
+			HeldOutMSE        float64 `json:"held_out_mse"`
+			TrainError        float64 `json:"train_error"`
+			SamplesTrained    uint64  `json:"samples_trained"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		v := s.Monitor.EvaluateTrainingQuality(req.CheckpointVersion, req.HeldOutMSE, req.TrainError, req.SamplesTrained)
+		writeJSON(w, map[string]any{
+			"checkpoint_version": v.CheckpointVersion,
+			"held_out_mse":       v.HeldOutMSE,
+			"quality":            v.Quality,
+			"passed":             v.Passed,
+		})
+	})
+
 	return mux
 }
 

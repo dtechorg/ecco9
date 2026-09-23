@@ -15,6 +15,7 @@ import (
 type Service struct {
 	Reservoir *reservoir.EchoStateReservoir
 	Trainer   *reservoir.OnlineTrainer
+	Pipeline  *reservoir.TrainingPipeline
 	Pool      *reservoir.ThreadPoolController
 	Health    *health.Reporter
 }
@@ -22,9 +23,11 @@ type Service struct {
 // New constructs the service with a persona-configured reservoir.
 func New(size int, persona reservoir.PersonaType, outDim int) *Service {
 	r := reservoir.New(size, persona)
+	trainer := reservoir.NewOnlineTrainer(r, outDim, 0.99)
 	return &Service{
 		Reservoir: r,
-		Trainer:   reservoir.NewOnlineTrainer(r, outDim, 0.99),
+		Trainer:   trainer,
+		Pipeline:  reservoir.NewTrainingPipeline(trainer),
 		Pool:      reservoir.NewThreadPoolController(2, 64),
 		Health:    health.NewReporter(),
 	}
@@ -106,6 +109,71 @@ func (s *Service) Routes() http.Handler {
 		}
 		prev, cur := s.Pool.SetWorkers(req.Workers)
 		writeJSON(w, map[string]any{"previous_workers": prev, "current_workers": cur})
+	})
+
+	// Online training pipeline endpoints: versioned checkpoints, held-out
+	// validation, and hot reload (pipeline steps 4-5).
+
+	// Capture a versioned checkpoint of the current readout weights.
+	mux.HandleFunc("POST /v1/reservoir/checkpoints", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		cp := s.Pipeline.Checkpoint()
+		writeJSON(w, map[string]any{
+			"version":      cp.Version,
+			"samples":      cp.Samples,
+			"train_error":  cp.TrainError,
+			"deployed":     s.Pipeline.Deployed(),
+			"checkpointed": true,
+		})
+	})
+
+	// Validate a checkpoint against held-out samples and promote it when the
+	// prediction error is within the promotion gate.
+	mux.HandleFunc("POST /v1/reservoir/checkpoints/validate", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Version uint64                       `json:"version"`
+			HeldOut []reservoir.ValidationSample `json:"held_out"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		cp, ok := s.Pipeline.Validate(req.Version, req.HeldOut)
+		if !ok {
+			http.Error(w, "checkpoint not found", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, map[string]any{
+			"version":      cp.Version,
+			"held_out_mse": cp.HeldOutMSE,
+			"promoted":     s.Pipeline.Deployed() == cp.Version,
+			"gate":         s.Pipeline.MaxValidationMSE,
+		})
+	})
+
+	// Hot-reload a versioned checkpoint into the live trainer.
+	mux.HandleFunc("POST /v1/reservoir/checkpoints/reload", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Version uint64 `json:"version"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if !s.Pipeline.Reload(req.Version) {
+			http.Error(w, "checkpoint not found", http.StatusNotFound)
+			return
+		}
+		samples, lastErr, version := s.Trainer.Stats()
+		writeJSON(w, map[string]any{
+			"reloaded":        true,
+			"version":         version,
+			"samples_trained": samples,
+			"last_error":      lastErr,
+		})
 	})
 
 	return mux

@@ -69,6 +69,9 @@ spec:
               ensure_consumer ECHO-CORE emotion-feed echo.emotions
               ensure_consumer ECHO-CORE resonance-feed echo.resonance
               ensure_consumer ECHO-MEMORY dream-consolidator echo.memories
+              # Relevance filter (pipeline step 2): scores and filters episodic
+              # memories for training relevance, republishing to echo.training.
+              ensure_consumer ECHO-MEMORY relevance-filter echo.memories
               ensure_consumer ECHO-MEMORY knowledge-distiller echo.dreams
               ensure_consumer ECHO-CONTROL metrics-collector echo.metrics
               ensure_consumer ECHO-CONTROL directive-applier echo.directives

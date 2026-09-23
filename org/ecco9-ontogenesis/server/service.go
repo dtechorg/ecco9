@@ -140,6 +140,38 @@ func (s *Service) Routes() http.Handler {
 		writeJSON(w, s.Engine.Status())
 	})
 
+	// Training metrics feedback (pipeline step 6): reservoir training
+	// outcomes seed the population for evolutionary parameter search.
+	mux.HandleFunc("POST /v1/ontogenesis/training_metrics", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			CheckpointVersion uint64  `json:"checkpoint_version"`
+			SamplesTrained    uint64  `json:"samples_trained"`
+			LastError         float64 `json:"last_error"`
+			HeldOutMSE        float64 `json:"held_out_mse"`
+			SpectralRadius    float64 `json:"spectral_radius"`
+			InputScaling      float64 `json:"input_scaling"`
+			LeakRate          float64 `json:"leak_rate"`
+			ForgettingFactor  float64 `json:"forgetting_factor"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		id := s.Engine.ObserveTrainingMetrics(ontogenesis.TrainingMetrics{
+			CheckpointVersion: req.CheckpointVersion,
+			SamplesTrained:    req.SamplesTrained,
+			LastError:         req.LastError,
+			HeldOutMSE:        req.HeldOutMSE,
+			SpectralRadius:    req.SpectralRadius,
+			InputScaling:      req.InputScaling,
+			LeakRate:          req.LeakRate,
+			ForgettingFactor:  req.ForgettingFactor,
+		})
+		_, overall, _ := s.Engine.Actualization()
+		s.Health.SetCoherence(overall)
+		writeJSON(w, map[string]any{"genome_id": id})
+	})
+
 	return mux
 }
 
