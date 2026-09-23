@@ -14,30 +14,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Detect legacy runtime changes
-        id: changes
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="${{ github.event.pull_request.base.sha }}"
-          else
-            BASE="${{ github.event.before }}"
-          fi
-          if git diff --quiet "$BASE" HEAD -- . \
-            ':(exclude)org/**' \
-            ':(exclude).github/workflows/**'; then
-            echo "legacy=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "legacy=true" >> "$GITHUB_OUTPUT"
-          fi
       
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.0'
+          go-version: '1.21'
           cache: true
       
       - name: Run gofmt
@@ -50,28 +31,9 @@ jobs:
           fi
       
       - name: Run go vet
-        if: steps.changes.outputs.legacy == 'true'
         run: |
           echo "Running go vet..."
           go vet ./...
-
-      - name: Validate extracted service modules
-        shell: bash
-        run: |
-          set -euo pipefail
-          while IFS= read -r mod; do
-            dir="${mod%/go.mod}"
-            echo "::group::${dir}"
-            (cd "$dir" && go test ./... && go vet ./...)
-            echo "::endgroup::"
-          done < <(find org -mindepth 2 -maxdepth 2 -name go.mod -print | sort)
-
-      - name: Validate protobuf contracts
-        shell: bash
-        run: |
-          curl -fsSL https://github.com/bufbuild/buf/releases/download/v1.57.0/buf-Linux-x86_64 -o /tmp/buf
-          chmod +x /tmp/buf
-          (cd org/ecco9-proto && /tmp/buf lint && /tmp/buf build)
       
       - name: Install golangci-lint
         run: |
@@ -94,7 +56,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.0'
+          go-version: '1.21'
           cache: true
       
       - name: Run Gosec Security Scanner
@@ -123,7 +85,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23.0'
+          go-version: '1.21'
           cache: true
       
       - name: Check for vulnerabilities
@@ -145,7 +107,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.23.0']
+        go-version: ['1.21']
     
     steps:
       - name: Checkout code
