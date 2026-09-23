@@ -116,3 +116,47 @@ func TestAssessSystemLoadRisesWithActiveProcesses(t *testing.T) {
 		t.Fatalf("load should rise with active processes: low=%v high=%v", low, high)
 	}
 }
+
+func TestEvaluateTrainingQualityPassesWithinGate(t *testing.T) {
+	m := NewMonitor()
+	v := m.EvaluateTrainingQuality(7, 0.10, 0.05, 128)
+	if !v.Passed {
+		t.Fatalf("MSE 0.10 should pass gate %.2f", MaxHeldOutMSE)
+	}
+	if v.Quality <= 0 || v.Quality > 1 {
+		t.Fatalf("quality out of range: %v", v.Quality)
+	}
+	if got, ok := m.TrainingValidation(7); !ok || got != v {
+		t.Fatalf("validation should be recorded: ok=%v", ok)
+	}
+	// A passing validation is a successful process: no learning gap.
+	if len(m.LearningGaps()) != 0 {
+		t.Fatalf("passing validation should not open a gap, got %d", len(m.LearningGaps()))
+	}
+}
+
+func TestEvaluateTrainingQualityFailureRecommendsRollback(t *testing.T) {
+	m := NewMonitor()
+	before := m.Status()["total_processes"].(uint64)
+	v := m.EvaluateTrainingQuality(9, 0.95, 0.4, 64)
+	if v.Passed {
+		t.Fatalf("MSE 0.95 should fail gate %.2f", MaxHeldOutMSE)
+	}
+	// Failure of a low-quality process opens a learning gap.
+	if len(m.LearningGaps()) == 0 {
+		t.Fatal("failed validation should open a learning gap")
+	}
+	if got := m.Status()["total_processes"].(uint64); got <= before {
+		t.Fatal("validation should track a cognitive process")
+	}
+	recs := m.AssessSystem().Recommendations
+	found := false
+	for _, r := range recs {
+		if containsAny(r, "rollback") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected rollback recommendation, got %v", recs)
+	}
+}

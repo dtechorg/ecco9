@@ -143,3 +143,74 @@ func TestActualizationClampedAndFragmentation(t *testing.T) {
 		t.Fatal("status missing entelechy_level")
 	}
 }
+
+func TestObserveTrainingMetricsSeedsPopulation(t *testing.T) {
+	e := NewEngine()
+	before := e.Status()["population_size"].(int)
+	id := e.ObserveTrainingMetrics(TrainingMetrics{
+		CheckpointVersion: 12,
+		SamplesTrained:    256,
+		LastError:         0.08,
+		HeldOutMSE:        0.12,
+		SpectralRadius:    0.99,
+		InputScaling:      0.2,
+		LeakRate:          0.3,
+		ForgettingFactor:  0.99,
+	})
+	if id == "" {
+		t.Fatal("expected a genome ID")
+	}
+	after := e.Status()["population_size"].(int)
+	if after != before+1 {
+		t.Fatalf("population should grow by one: before=%d after=%d", before, after)
+	}
+	// The seeded genome should carry the reservoir parameters and a fitness
+	// derived from training quality, and be evolvable.
+	fitness, ok := e.EvaluateFitness(id)
+	if !ok {
+		t.Fatal("seeded genome should be in the population")
+	}
+	if fitness <= 0 {
+		t.Fatalf("fitness should be positive, got %v", fitness)
+	}
+}
+
+func TestObserveTrainingMetricsBetterErrorYieldsHigherFitness(t *testing.T) {
+	e := NewEngine()
+	good := e.ObserveTrainingMetrics(TrainingMetrics{LastError: 0.05, HeldOutMSE: 0.05, SpectralRadius: 0.9})
+	bad := e.ObserveTrainingMetrics(TrainingMetrics{LastError: 0.9, HeldOutMSE: 0.9, SpectralRadius: 0.9})
+	// Find the seeded genomes and compare their stored fitness.
+	var goodFit, badFit float64
+	e.mu.RLock()
+	for _, g := range e.population {
+		if g.ID == good {
+			goodFit = g.Fitness
+		}
+		if g.ID == bad {
+			badFit = g.Fitness
+		}
+	}
+	e.mu.RUnlock()
+	if goodFit <= badFit {
+		t.Fatalf("lower training error should yield higher fitness: good=%v bad=%v", goodFit, badFit)
+	}
+}
+
+func TestTrainingMetricsFeedEvolution(t *testing.T) {
+	e := NewEngine()
+	// Seed several training-derived genomes, then evolve: the evolutionary
+	// parameter search should complete and keep the training-derived genes.
+	for i := 0; i < 4; i++ {
+		e.ObserveTrainingMetrics(TrainingMetrics{
+			LastError: 0.1 * float64(i+1), HeldOutMSE: 0.1 * float64(i+1),
+			SpectralRadius: 0.9, InputScaling: 0.3, LeakRate: 0.3, ForgettingFactor: 0.99,
+		})
+	}
+	job := e.Evolve(8, 3, 0.1)
+	if job.Best == nil {
+		t.Fatal("evolve should produce a best genome")
+	}
+	if _, ok := job.Best.Genes["spectral_radius"]; !ok {
+		t.Fatalf("evolved genome should carry reservoir parameter genes, got %v", job.Best.Genes)
+	}
+}

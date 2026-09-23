@@ -88,9 +88,12 @@ type Monitor struct {
 	confidenceLevel float64
 	awarenessLevel  float64
 
-	totalProcesses uint64
-	totalDecisions uint64
-	strategyShifts uint64
+	totalProcesses   uint64
+	totalDecisions   uint64
+	strategyShifts   uint64
+	totalValidations uint64
+
+	trainingValidations map[uint64]*TrainingValidation
 
 	counter uint64
 }
@@ -98,13 +101,14 @@ type Monitor struct {
 // NewMonitor creates a monitor with the default strategy repertoire.
 func NewMonitor() *Monitor {
 	m := &Monitor{
-		activeProcesses: make(map[string]*CognitiveProcess),
-		recentDecisions: make([]*Decision, 0),
-		decisionQuality: make(map[string]*QualityAssessment),
-		strategies:      make(map[string]*CognitiveStrategy),
-		learningGaps:    make(map[string]*KnowledgeGap),
-		confidenceLevel: 0.7,
-		awarenessLevel:  0.8,
+		activeProcesses:     make(map[string]*CognitiveProcess),
+		recentDecisions:     make([]*Decision, 0),
+		decisionQuality:     make(map[string]*QualityAssessment),
+		strategies:          make(map[string]*CognitiveStrategy),
+		learningGaps:        make(map[string]*KnowledgeGap),
+		trainingValidations: make(map[uint64]*TrainingValidation),
+		confidenceLevel:     0.7,
+		awarenessLevel:      0.8,
 	}
 	// Default strategies from the monorepo's initializeStrategies.
 	m.strategies["deliberate"] = &CognitiveStrategy{
@@ -158,8 +162,14 @@ func (m *Monitor) Track(p CognitiveProcess) (string, bool) {
 		p.StartTime = time.Now()
 	}
 	proc := p
-	m.activeProcesses[proc.ID] = &proc
 	m.totalProcesses++
+	if proc.Completed {
+		// A process registered already-completed finalizes immediately:
+		// it never enters the active set but still informs the self-model.
+		m.updateSelfModel(&proc)
+		return proc.ID, true
+	}
+	m.activeProcesses[proc.ID] = &proc
 	return proc.ID, true
 }
 
@@ -352,6 +362,76 @@ type Assessment struct {
 	Recommendations     []string
 }
 
+// TrainingValidation records the quality evaluation of a reservoir training
+// checkpoint against a held-out set (pipeline step 4). Low quality drives a
+// rollback recommendation and feeds the self-model as a failed process.
+type TrainingValidation struct {
+	CheckpointVersion uint64
+	HeldOutMSE        float64
+	SamplesTrained    uint64
+	Quality           float64
+	Passed            bool
+	EvaluatedAt       time.Time
+}
+
+// MaxHeldOutMSE is the quality gate for reservoir training checkpoints.
+// Checkpoints whose held-out prediction error exceeds the threshold fail
+// validation and trigger a rollback recommendation.
+const MaxHeldOutMSE = 0.5
+
+// EvaluateTrainingQuality scores a reservoir training checkpoint by held-out
+// prediction error, tracks it as a monitored cognitive process, and records
+// the validation. Quality is 1/(1+MSE); a checkpoint passes when its MSE is
+// within MaxHeldOutMSE.
+func (m *Monitor) EvaluateTrainingQuality(checkpointVersion uint64, heldOutMSE, trainError float64, samples uint64) *TrainingValidation {
+	if heldOutMSE < 0 || math.IsNaN(heldOutMSE) {
+		heldOutMSE = 0
+	}
+	quality := 1.0 / (1.0 + heldOutMSE)
+	passed := heldOutMSE <= MaxHeldOutMSE
+	if !passed {
+		// A failed checkpoint is a low-quality outcome: drop quality below
+		// the 0.5 learning-gap threshold so the failure is surfaced.
+		quality = math.Min(quality, 0.4)
+	}
+
+	v := &TrainingValidation{
+		CheckpointVersion: checkpointVersion,
+		HeldOutMSE:        heldOutMSE,
+		SamplesTrained:    samples,
+		Quality:           quality,
+		Passed:            passed,
+		EvaluatedAt:       time.Now(),
+	}
+
+	// Track the validation as a completed cognitive process so the system
+	// assessment observes training quality (success raises confidence,
+	// failure reveals learning gaps).
+	m.Track(CognitiveProcess{
+		Name:         "reservoir-training",
+		Type:         "reservoir_training",
+		Service:      "ecco9-reservoir",
+		Progress:     1.0,
+		QualityScore: quality,
+		Completed:    true,
+		Success:      passed,
+	})
+
+	m.mu.Lock()
+	m.trainingValidations[checkpointVersion] = v
+	m.totalValidations++
+	m.mu.Unlock()
+	return v
+}
+
+// TrainingValidation returns the recorded validation for a checkpoint.
+func (m *Monitor) TrainingValidation(checkpointVersion uint64) (*TrainingValidation, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	v, ok := m.trainingValidations[checkpointVersion]
+	return v, ok
+}
+
 // AssessSystem computes global load, identity coherence, and
 // recommendations — the metacog analog of improvement.RecursiveSelfImprover
 // analysis feeding the orchestrator's adaptation loop.
@@ -396,6 +476,18 @@ func (m *Monitor) AssessSystem() *Assessment {
 	}
 	if assessed > 0 && qualitySum/float64(assessed) < 0.7 {
 		recommendations = append(recommendations, "Run recursive self-improvement cycle on decision pipeline")
+	}
+	// Failed reservoir training validations recommend rolling back to the
+	// last deployed checkpoint (identity coherence gate).
+	failedValidations := 0
+	for _, v := range m.trainingValidations {
+		if !v.Passed {
+			failedValidations++
+		}
+	}
+	if failedValidations > 0 {
+		recommendations = append(recommendations,
+			"Rollback reservoir to last deployed checkpoint: training validation failed")
 	}
 	if len(recommendations) == 0 {
 		recommendations = append(recommendations, "System operating within metacognitive tolerances")

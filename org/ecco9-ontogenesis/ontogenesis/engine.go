@@ -339,6 +339,58 @@ func randomGenome(n int) *Genome {
 	return NewGenome("", genes)
 }
 
+// TrainingMetrics is the feedback signal from the online reservoir training
+// pipeline (step 6): the RLS training outcome feeds evolutionary parameter
+// search over the reservoir hyperparameters.
+type TrainingMetrics struct {
+	CheckpointVersion uint64
+	SamplesTrained    uint64
+	LastError         float64
+	HeldOutMSE        float64
+	// Reservoir parameters that produced this training outcome.
+	SpectralRadius   float64
+	InputScaling     float64
+	LeakRate         float64
+	ForgettingFactor float64
+}
+
+// ObserveTrainingMetrics folds a reservoir training outcome into the
+// population as a reservoir-parameter genome whose fitness derives from the
+// training error, so the next Evolve run performs evolutionary parameter
+// search seeded by observed training quality (pipeline step 6). Returns the
+// genome ID.
+func (e *Engine) ObserveTrainingMetrics(tm TrainingMetrics) string {
+	genes := map[string]float64{
+		"spectral_radius": clamp01(tm.SpectralRadius),
+		"input_scaling":   clamp01(tm.InputScaling),
+		"leak_rate":       clamp01(tm.LeakRate),
+		"learning_rate":   clamp01(tm.ForgettingFactor),
+		"train_error":     clamp01(tm.LastError),
+	}
+	// Fitness from training quality: lower error → higher fitness, in the
+	// same 1/(1+error) form as Evaluate.
+	fitness := 1.0 / (1.0 + tm.LastError)
+	if tm.HeldOutMSE >= 0 {
+		fitness = 1.0 / (1.0 + 0.5*(tm.LastError+tm.HeldOutMSE))
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.counter++
+	g := &Genome{
+		ID:               fmt.Sprintf("training-%d-%d", time.Now().Unix(), e.counter),
+		Genes:            genes,
+		Fitness:          fitness,
+		MutationRate:     0.1,
+		MutationStrength: 0.05,
+	}
+	e.population = append(e.population, g)
+	// Training feedback is an evolutionary signal: nudge the evolutionary
+	// actualization dimension toward observed training quality.
+	e.entelechy.Evolutionary = clamp01(0.9*e.entelechy.Evolutionary + 0.1*fitness)
+	return g.ID
+}
+
 // Job returns an evolution job by ID.
 func (e *Engine) Job(id string) (*EvolutionJob, bool) {
 	e.mu.RLock()
