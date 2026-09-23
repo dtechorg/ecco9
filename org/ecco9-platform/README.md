@@ -9,6 +9,9 @@ Platform deployment foundation for the ecco9 distributed cognitive architecture.
 - `servicemesh/` — Istio configuration: mTLS, traffic management, canary routing
 - `observability/` — Prometheus, Grafana, Tempo, Loki stack plus cognitive dashboards
 - `secrets/` — External Secrets Operator integration with Vault/SOPS
+- `ci/` — CI/CD pipeline architecture (Phase 6): per-repo pipeline template,
+  cross-repo integration tests (contract, chaos, echo coherence), and the
+  monorepo → multi-repo migration strategy
 
 ## Namespaces
 

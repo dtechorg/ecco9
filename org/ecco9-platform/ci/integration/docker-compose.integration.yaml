@@ -1,0 +1,126 @@
+# Full-stack ephemeral deployment for cognitive integration tests
+# (issue #7, section 6.2). CI creates this stack (or a kind/k3d namespace
+# rendered from the same service set) and runs the Deep Tree Echo test
+# suite against it:
+#
+#   go test -tags=integration ./org/ecco9-platform/ci/integration/...
+#
+# The in-process suite (stack_test.go) exercises the identical wiring without
+# containers; this compose file is for smoke-testing real images and for
+# local reproduction of CI failures.
+#
+# Topology mirrors Phase 5's neural architecture: core processing layer,
+# cognitive layers, and higher-order services all on one mesh network with
+# the NATS central nervous system.
+
+services:
+  # ── Central nervous system ────────────────────────────────────────────────
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js", "-m", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  # ── Core processing layer ─────────────────────────────────────────────────
+  reservoir:
+    image: ghcr.io/dtechorg/ecco9-reservoir:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-reservoir
+    depends_on:
+      nats: { condition: service_healthy }
+
+  echobeats:
+    image: ghcr.io/dtechorg/ecco9-echobeats:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-echobeats
+    depends_on:
+      nats: { condition: service_healthy }
+
+  llm-gateway:
+    image: ghcr.io/dtechorg/ecco9-llm-gateway:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-llm-gateway
+    depends_on:
+      nats: { condition: service_healthy }
+
+  # ── Cognitive layers ──────────────────────────────────────────────────────
+  memory:
+    image: ghcr.io/dtechorg/ecco9-memory:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-memory
+    depends_on:
+      nats: { condition: service_healthy }
+
+  emotion:
+    image: ghcr.io/dtechorg/ecco9-emotion:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-emotion
+    depends_on:
+      nats: { condition: service_healthy }
+
+  consciousness:
+    image: ghcr.io/dtechorg/ecco9-consciousness:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-consciousness
+    depends_on:
+      nats: { condition: service_healthy }
+
+  relevance:
+    image: ghcr.io/dtechorg/ecco9-relevance:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-relevance
+    depends_on:
+      nats: { condition: service_healthy }
+
+  atomspace:
+    image: ghcr.io/dtechorg/ecco9-atomspace:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-atomspace
+    depends_on:
+      nats: { condition: service_healthy }
+
+  # ── Higher-order layer ────────────────────────────────────────────────────
+  identity:
+    image: ghcr.io/dtechorg/ecco9-identity:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-identity
+    depends_on:
+      nats: { condition: service_healthy }
+
+  echodream:
+    image: ghcr.io/dtechorg/ecco9-echodream:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-echodream
+    depends_on:
+      nats: { condition: service_healthy }
+
+  wisdom:
+    image: ghcr.io/dtechorg/ecco9-wisdom:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-wisdom
+    depends_on:
+      nats: { condition: service_healthy }
+
+  # ── Meta-cognitive monitor ────────────────────────────────────────────────
+  metacog:
+    image: ghcr.io/dtechorg/ecco9-metacog:${ECCO9_TAG:-latest}
+    environment:
+      ECCO9_NATS_URL: nats://nats:4222
+      ECCO9_SERVICE_NAME: ecco9-metacog
+      ECCO9_ORCHESTRATOR_ADDR: orchestrator:50051
+    depends_on:
+      nats: { condition: service_healthy }
